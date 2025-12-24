@@ -178,14 +178,34 @@
         </div>
     </div>
 
-    <!-- Modal Preview Image -->
-    <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-80 hidden flex items-center justify-center z-50 p-4" onclick="this.classList.add('hidden')">
+    <!-- Modal Preview Image (Only Image) -->
+    <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-90 hidden flex items-center justify-center z-[100] p-4" onclick="this.classList.add('hidden')">
         <img id="fullImagePreview" src="" class="max-w-full max-h-screen rounded shadow-lg">
     </div>
 
-    <!-- Template Report (Desain Baru & Rapi) -->
-    <!-- PERBAIKAN: Menggunakan position absolute left -9999px bukan opacity 0 agar html2canvas merender gambar dengan benar -->
-    <div id="receiptTemplate" class="absolute left-[-9999px] top-0 receipt-bg p-8 rounded-none w-[450px] shadow-2xl border border-gray-200 text-gray-800 font-mono">
+    <!-- MODAL PREVIEW REPORT (BARU) -->
+    <!-- Ini akan menampilkan struk sebelum di download -->
+    <div id="reportModal" class="fixed inset-0 bg-black bg-opacity-80 hidden flex flex-col items-center justify-center z-[90] p-4 backdrop-blur-sm">
+        <div class="flex justify-between items-center w-full max-w-[450px] mb-4">
+            <h3 class="text-white font-bold text-lg">Preview Report</h3>
+            <div class="flex space-x-2">
+                <button id="btnDownloadReport" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold shadow transition flex items-center text-sm">
+                    <i class="fas fa-download mr-2"></i> Simpan
+                </button>
+                <button onclick="closeReportModal()" class="bg-white hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-bold shadow transition text-sm">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Container Struk -->
+        <div id="reportPreviewContainer" class="overflow-auto max-h-[80vh] rounded shadow-2xl bg-gray-200 p-1">
+            <!-- Struk akan di-inject ke sini -->
+        </div>
+    </div>
+
+    <!-- Template Report (Hidden Source) -->
+    <div id="receiptTemplate" class="hidden p-8 rounded-none w-[450px] bg-white border border-gray-200 text-gray-800 font-mono receipt-bg">
         <!-- Header -->
         <div class="text-center border-b-2 border-gray-800 pb-4 mb-6">
             <h2 class="text-3xl font-bold tracking-tighter text-gray-900 mb-1">WAREHOUSE</h2>
@@ -231,7 +251,7 @@
         <div id="receiptImgCont" class="hidden mt-4 pt-4 border-t border-gray-200 text-center">
             <p class="text-[10px] text-gray-400 uppercase mb-2">Attached Proof</p>
             <div class="p-2 border border-gray-300 inline-block rounded bg-white shadow-sm">
-                <img id="receiptImg" class="max-h-64 max-w-full rounded object-contain">
+                <img id="receiptImg" class="max-h-64 max-w-full rounded object-contain min-h-[100px]" crossorigin="anonymous">
             </div>
         </div>
 
@@ -286,6 +306,7 @@
         let currentSelectedId = null;
         let currentTransactionType = '';
         let currentEditId = null;
+        let currentReportElement = null; // Menyimpan referensi elemen laporan yg aktif
 
         const statusEl = document.getElementById('connectionStatus');
         const confirmBtn = document.getElementById('confirmBtn');
@@ -644,82 +665,96 @@
             }
         };
 
+        // --- FUNGSI SCREENSHOT V5 (WITH PREVIEW MODAL) ---
         window.takeRowScreenshot = (id) => {
             const log = history.find(l => l.id === id);
-            if(!log) return;
-            
-            // Populate New Report Template
-            document.getElementById('recDate').textContent = log.date;
-            document.getElementById('recPIC').textContent = log.pic || 'Unknown';
-            document.getElementById('recID').textContent = log.id.substring(0, 8).toUpperCase();
+            if (!log) return;
+
+            // 1. Siapkan Template
+            const originalTpl = document.getElementById('receiptTemplate');
+            const tpl = originalTpl.cloneNode(true);
+            tpl.removeAttribute('id');
+            tpl.classList.remove('hidden');
+            tpl.style.width = "100%"; // Fit to container
+            tpl.style.boxShadow = "none"; // Remove duplicate shadow
+
+            // 2. Isi Data
+            tpl.querySelector('#recDate').textContent = log.date;
+            tpl.querySelector('#recPIC').textContent = log.pic || '-';
+            tpl.querySelector('#recID').textContent = log.id.substring(0,8).toUpperCase();
             
             let typeText = 'SETUP';
             let typeClass = 'border-gray-300 text-gray-700 bg-gray-50';
             if (log.type === 'DEPOSIT') { typeText = 'INBOUND (DP)'; typeClass = 'border-blue-500 text-blue-800 bg-blue-50'; }
             else if (log.type === 'WITHDRAW') { typeText = 'OUTBOUND (WD)'; typeClass = 'border-orange-500 text-orange-800 bg-orange-50'; }
             
-            const recType = document.getElementById('recType');
+            const recType = tpl.querySelector('#recType');
             recType.textContent = typeText;
             recType.className = `inline-block px-3 py-1 rounded border-2 font-bold ${typeClass}`;
             
-            document.getElementById('recItem').textContent = log.itemName;
-            document.getElementById('recAmount').textContent = log.amount;
-            document.getElementById('recBefore').textContent = log.before;
-            document.getElementById('recAfter').textContent = log.after;
-            document.getElementById('recDesc').textContent = log.desc || 'No description provided.';
+            tpl.querySelector('#recItem').textContent = log.itemName;
+            tpl.querySelector('#recAmount').textContent = log.amount;
+            tpl.querySelector('#recBefore').textContent = log.before;
+            tpl.querySelector('#recAfter').textContent = log.after;
+            tpl.querySelector('#recDesc').textContent = log.desc || '-';
 
-            const imgCont = document.getElementById('receiptImgCont');
-            const imgEl = document.getElementById('receiptImg');
-            
-            // PERBAIKAN LOGIKA LOAD GAMBAR
-            // Reset dulu
-            imgEl.onload = null;
-            imgEl.src = "";
+            // 3. Handle Image
+            const imgCont = tpl.querySelector('#receiptImgCont');
+            const imgEl = tpl.querySelector('#receiptImg');
 
-            if(log.image) {
+            if (log.image) {
                 imgCont.classList.remove('hidden');
-                
-                // Set handler SEBELUM set src
-                imgEl.onload = () => {
-                    setTimeout(captureNow, 200); // Jeda sedikit agar render tuntas
-                };
-                
-                imgEl.onerror = () => {
-                    console.warn("Gagal load gambar, tetap print tanpa gambar");
-                    captureNow();
-                };
-
                 imgEl.src = log.image;
-
-                // Fallback jika sudah cached dan onload tidak fire
-                if (imgEl.complete && imgEl.naturalWidth > 0) {
-                    setTimeout(captureNow, 100);
-                }
             } else {
                 imgCont.classList.add('hidden');
-                setTimeout(captureNow, 100);
             }
 
-            function captureNow() {
-                const tpl = document.getElementById('receiptTemplate');
-                // Tidak perlu opacity 1 karena position absolute -9999px sudah cukup menyembunyikan tapi tetap renderable
+            // 4. Masukkan ke Modal Preview
+            const container = document.getElementById('reportPreviewContainer');
+            container.innerHTML = ''; // Bersihkan preview sebelumnya
+            container.appendChild(tpl);
+            currentReportElement = tpl; // Simpan referensi untuk download nanti
+
+            // 5. Tampilkan Modal
+            document.getElementById('reportModal').classList.remove('hidden');
+        };
+
+        // Fungsi Download dari Modal
+        document.getElementById('btnDownloadReport').addEventListener('click', () => {
+            if(!currentReportElement) return;
+            
+            const btn = document.getElementById('btnDownloadReport');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
+            btn.disabled = true;
+
+            html2canvas(currentReportElement, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                allowTaint: true,
+                logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                // Ambil data dari elemen yang ada di DOM
+                const typeText = currentReportElement.querySelector('#recType').textContent;
+                const itemName = currentReportElement.querySelector('#recItem').textContent;
                 
-                html2canvas(tpl, { 
-                    scale: 2,
-                    backgroundColor: '#ffffff',
-                    useCORS: true,
-                    allowTaint: true,
-                    logging: false
-                }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = `Report_${log.type}_${log.itemName}.png`;
-                    link.href = canvas.toDataURL();
-                    link.click();
-                }).catch(err => {
-                    console.error("Gagal screenshot:", err);
-                    alert("Gagal membuat report: " + err.message);
-                });
-            }
+                link.download = `Report_${typeText}_${itemName}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                showToast("Report berhasil diunduh!");
+            }).catch(err => {
+                console.error(err);
+                alert("Gagal download: " + err.message);
+            }).finally(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        });
+
+        window.closeReportModal = () => {
+            document.getElementById('reportModal').classList.add('hidden');
         };
 
         window.takeScreenshotTable = () => {
