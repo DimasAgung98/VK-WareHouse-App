@@ -719,7 +719,7 @@
             document.getElementById('reportModal').classList.remove('hidden');
         };
 
-        // Fungsi Download dari Modal
+        // Fungsi Download dari Modal (FIXED TARGETING PREVIEW ELEMENT)
         document.getElementById('btnDownloadReport').addEventListener('click', () => {
             if(!currentReportElement) return;
             
@@ -728,6 +728,7 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
             btn.disabled = true;
 
+            // Target the PREVIEW element directly, which is already rendered
             html2canvas(currentReportElement, {
                 scale: 2,
                 backgroundColor: '#ffffff',
@@ -736,7 +737,7 @@
                 logging: false
             }).then(canvas => {
                 const link = document.createElement('a');
-                // Ambil data dari elemen yang ada di DOM
+                // Extract data from the element currently in DOM
                 const typeText = currentReportElement.querySelector('#recType').textContent;
                 const itemName = currentReportElement.querySelector('#recItem').textContent;
                 
