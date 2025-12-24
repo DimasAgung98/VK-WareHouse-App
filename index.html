@@ -18,6 +18,7 @@
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
         /* Receipt Pattern Background */
         .receipt-bg {
@@ -25,12 +26,16 @@
             background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
             background-size: 20px 20px;
         }
+
+        /* Custom Modal Animation */
+        .modal-scale { animation: modalScale 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes modalScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
 <body class="text-gray-800">
 
     <!-- Navbar -->
-    <nav class="bg-blue-700 text-white shadow-lg sticky top-0 z-50">
+    <nav class="bg-blue-800 text-white shadow-lg sticky top-0 z-40">
         <div class="container mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center space-x-3">
                 <i class="fas fa-warehouse text-2xl"></i>
@@ -59,11 +64,11 @@
                     <form id="addItemForm" onsubmit="handleAddItem(event)">
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
-                            <input type="text" id="itemName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                            <input type="text" id="itemName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
                         </div>
                         <div class="mb-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Stok Awal</label>
-                            <input type="number" id="itemQty" required min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                            <input type="number" id="itemQty" required min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
                         </div>
                         <button type="submit" id="btnSaveItem" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-md flex justify-center items-center">
                             <i class="fas fa-save mr-2"></i> Simpan ke Cloud
@@ -129,37 +134,58 @@
         </div>
     </div>
 
+    <!-- ============================================= -->
+    <!-- CUSTOM ALERT CARD SYSTEM (REPLACEMENT)        -->
+    <!-- ============================================= -->
+    <div id="customAlert" class="fixed inset-0 z-[110] hidden flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm px-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden modal-scale">
+            <!-- Alert Header -->
+            <div id="alertHeader" class="p-6 flex flex-col items-center justify-center text-center">
+                <div id="alertIconWrapper" class="w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors">
+                    <i id="alertIcon" class="text-3xl"></i>
+                </div>
+                <h3 id="alertTitle" class="text-xl font-bold text-gray-800 mb-2"></h3>
+                <p id="alertMessage" class="text-sm text-gray-500 px-4"></p>
+            </div>
+            
+            <!-- Alert Actions -->
+            <div id="alertActions" class="bg-gray-50 px-6 py-4 flex gap-3 justify-center">
+                <!-- Buttons injected via JS -->
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Transaksi -->
     <div id="transactionModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 backdrop-blur-sm p-4 overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 m-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 m-auto modal-scale">
             <div class="flex justify-between items-center mb-4 border-b pb-2">
                 <h3 class="text-xl font-bold text-gray-800" id="modalTitle">Transaksi</h3>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition"><i class="fas fa-times text-xl"></i></button>
             </div>
-            <div class="mb-4 bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+            <div class="mb-4 bg-gray-50 p-3 rounded-lg flex justify-between items-center border border-gray-100">
                 <p class="font-bold text-lg text-blue-800" id="modalItemName">-</p>
-                <span class="text-xs bg-gray-200 px-2 py-1 rounded">Stok: <span id="modalCurrentStock" class="font-bold">0</span></span>
+                <span class="text-xs bg-white border px-2 py-1 rounded shadow-sm">Stok: <span id="modalCurrentStock" class="font-bold">0</span></span>
             </div>
             <div class="space-y-3 mb-6">
-                <input type="number" id="transactionAmount" min="1" class="w-full px-4 py-2 border rounded-lg" placeholder="Jumlah">
-                <input type="text" id="transactionPIC" class="w-full px-4 py-2 border rounded-lg" placeholder="Nama PIC">
-                <textarea id="transactionDesc" rows="2" class="w-full px-4 py-2 border rounded-lg" placeholder="Keterangan"></textarea>
-                <div class="border rounded-lg p-2">
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Bukti Foto (Max 500KB - Otomatis Kompres)</label>
-                    <input type="file" id="transactionImage" accept="image/*" class="text-xs w-full">
+                <input type="number" id="transactionAmount" min="1" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Jumlah">
+                <input type="text" id="transactionPIC" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nama PIC">
+                <textarea id="transactionDesc" rows="2" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Keterangan"></textarea>
+                <div class="border rounded-lg p-2 border-dashed border-gray-300">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Bukti Foto (Max 500KB)</label>
+                    <input type="file" id="transactionImage" accept="image/*" class="text-xs w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                 </div>
-                <p id="errorMsg" class="text-red-500 text-xs hidden">Stok tidak cukup!</p>
+                <p id="errorMsg" class="text-red-500 text-xs hidden flex items-center"><i class="fas fa-exclamation-circle mr-1"></i> Stok tidak cukup!</p>
             </div>
             <div class="flex space-x-3">
-                <button onclick="closeModal()" class="flex-1 py-2 border rounded-lg text-gray-700">Batal</button>
-                <button id="confirmBtn" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold shadow hover:bg-blue-700">Konfirmasi</button>
+                <button onclick="closeModal()" class="flex-1 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 transition">Batal</button>
+                <button id="confirmBtn" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold shadow hover:bg-blue-700 transition">Konfirmasi</button>
             </div>
         </div>
     </div>
 
     <!-- Modal Edit Barang -->
     <div id="editItemModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 backdrop-blur-sm p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 modal-scale">
             <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Edit Barang</h3>
             <div class="space-y-4 mb-6">
                 <div>
@@ -172,19 +198,19 @@
                 </div>
             </div>
             <div class="flex space-x-2">
-                <button onclick="document.getElementById('editItemModal').classList.add('hidden')" class="flex-1 py-2 border rounded-lg text-gray-600 text-sm">Batal</button>
-                <button id="saveEditBtn" class="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow hover:bg-blue-700">Simpan Perubahan</button>
+                <button onclick="document.getElementById('editItemModal').classList.add('hidden')" class="flex-1 py-2 border rounded-lg text-gray-600 text-sm hover:bg-gray-50 transition">Batal</button>
+                <button id="saveEditBtn" class="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow hover:bg-blue-700 transition">Simpan Perubahan</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal Preview Image (Only Image) -->
-    <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-90 hidden flex items-center justify-center z-[100] p-4" onclick="this.classList.add('hidden')">
-        <img id="fullImagePreview" src="" class="max-w-full max-h-screen rounded shadow-lg">
+    <!-- Modal Preview Image -->
+    <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-90 hidden flex items-center justify-center z-[100] p-4 backdrop-blur-md" onclick="this.classList.add('hidden')">
+        <img id="fullImagePreview" src="" class="max-w-full max-h-screen rounded shadow-lg modal-scale">
+        <p class="absolute bottom-5 text-white text-sm opacity-70">Klik dimana saja untuk menutup</p>
     </div>
 
-    <!-- MODAL PREVIEW REPORT (BARU) -->
-    <!-- Ini akan menampilkan struk sebelum di download -->
+    <!-- MODAL PREVIEW REPORT -->
     <div id="reportModal" class="fixed inset-0 bg-black bg-opacity-80 hidden flex flex-col items-center justify-center z-[90] p-4 backdrop-blur-sm">
         <div class="flex justify-between items-center w-full max-w-[450px] mb-4">
             <h3 class="text-white font-bold text-lg">Preview Report</h3>
@@ -199,7 +225,7 @@
         </div>
         
         <!-- Container Struk -->
-        <div id="reportPreviewContainer" class="overflow-auto max-h-[80vh] rounded shadow-2xl bg-gray-200 p-1">
+        <div id="reportPreviewContainer" class="overflow-auto max-h-[80vh] rounded shadow-2xl bg-gray-200 p-1 modal-scale">
             <!-- Struk akan di-inject ke sini -->
         </div>
     </div>
@@ -274,8 +300,8 @@
     </div>
 
     <!-- Toast -->
-    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg translate-y-20 transition-transform duration-300 z-50">
-        <i class="fas fa-check-circle text-green-400 mr-2"></i> <span id="toastMessage"></span>
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg translate-y-20 transition-transform duration-300 z-[120] flex items-center">
+        <i class="fas fa-check-circle text-green-400 mr-3"></i> <span id="toastMessage" class="font-medium"></span>
     </div>
 
     <!-- LOGIC SCRIPT (FIREBASE MODULE) -->
@@ -299,8 +325,95 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } 
         from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
+        // --- CUSTOM ALERT SYSTEM LOGIC ---
+        const alertModal = document.getElementById('customAlert');
+        const alertTitle = document.getElementById('alertTitle');
+        const alertMessage = document.getElementById('alertMessage');
+        const alertIcon = document.getElementById('alertIcon');
+        const alertIconWrapper = document.getElementById('alertIconWrapper');
+        const alertActions = document.getElementById('alertActions');
+        let currentConfirmCallback = null;
+
+        // Fungsi Global untuk menampilkan Alert
+        window.showAlert = (title, message, type = 'info') => {
+            alertTitle.textContent = title;
+            alertMessage.innerHTML = message; // Allow HTML for line breaks
+            alertActions.innerHTML = ''; // Reset buttons
+
+            // Style Reset
+            alertIconWrapper.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors';
+            
+            // Icon & Colors configuration
+            if (type === 'success') {
+                alertIconWrapper.classList.add('bg-green-100', 'text-green-600');
+                alertIcon.className = 'fas fa-check text-3xl';
+            } else if (type === 'error') {
+                alertIconWrapper.classList.add('bg-red-100', 'text-red-600');
+                alertIcon.className = 'fas fa-times text-3xl';
+            } else if (type === 'warning') {
+                alertIconWrapper.classList.add('bg-yellow-100', 'text-yellow-600');
+                alertIcon.className = 'fas fa-exclamation-triangle text-3xl';
+            } else {
+                alertIconWrapper.classList.add('bg-blue-100', 'text-blue-600');
+                alertIcon.className = 'fas fa-info text-3xl';
+            }
+
+            // Create OK Button
+            const btn = document.createElement('button');
+            btn.className = 'w-full px-4 py-2 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-900 transition';
+            btn.textContent = 'OK';
+            btn.onclick = closeAlert;
+            alertActions.appendChild(btn);
+
+            alertModal.classList.remove('hidden');
+        };
+
+        // Fungsi Global untuk Confirmation
+        window.showConfirm = (title, message, callback, type = 'warning') => {
+            alertTitle.textContent = title;
+            alertMessage.innerHTML = message;
+            alertActions.innerHTML = '';
+            currentConfirmCallback = callback;
+
+            if (type === 'danger') {
+                alertIconWrapper.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-100 text-red-600';
+                alertIcon.className = 'fas fa-trash-alt text-3xl';
+            } else {
+                alertIconWrapper.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-yellow-100 text-yellow-600';
+                alertIcon.className = 'fas fa-question text-3xl';
+            }
+
+            // Cancel Button
+            const btnCancel = document.createElement('button');
+            btnCancel.className = 'flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition';
+            btnCancel.textContent = 'Batal';
+            btnCancel.onclick = closeAlert;
+
+            // Confirm Button
+            const btnConfirm = document.createElement('button');
+            const confirmColor = type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700';
+            btnConfirm.className = `flex-1 px-4 py-2 ${confirmColor} text-white rounded-lg font-medium transition`;
+            btnConfirm.textContent = 'Ya, Lanjutkan';
+            btnConfirm.onclick = () => {
+                if(currentConfirmCallback) currentConfirmCallback();
+                closeAlert();
+            };
+
+            alertActions.appendChild(btnCancel);
+            alertActions.appendChild(btnConfirm);
+
+            alertModal.classList.remove('hidden');
+        };
+
+        window.closeAlert = () => {
+            alertModal.classList.add('hidden');
+            currentConfirmCallback = null;
+        };
+
+        // --- END CUSTOM ALERT SYSTEM ---
+
         if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("API_KEY")) {
-             showError("Config Error", "API Key belum diisi dengan benar.");
+             window.showAlert("Config Error", "API Key belum diisi dengan benar.", "error");
         }
 
         let app, db, auth;
@@ -309,7 +422,7 @@
             db = getFirestore(app);
             auth = getAuth(app);
         } catch (e) {
-            showError("Init Error", e.message);
+            window.showAlert("Init Error", e.message, "error");
         }
 
         let inventory = [];
@@ -317,7 +430,7 @@
         let currentSelectedId = null;
         let currentTransactionType = '';
         let currentEditId = null;
-        let currentReportElement = null; // Menyimpan referensi elemen laporan yg aktif
+        let currentReportElement = null;
 
         const statusEl = document.getElementById('connectionStatus');
         const confirmBtn = document.getElementById('confirmBtn');
@@ -325,7 +438,7 @@
         // --- 0. AUTHENTICATION ---
         signInAnonymously(auth).catch((error) => {
             console.error("Auth Error:", error);
-            showError("Gagal Login", "Pastikan 'Anonymous Auth' sudah diaktifkan di Firebase Console.");
+            window.showAlert("Gagal Login", "Pastikan 'Anonymous Auth' sudah diaktifkan di Firebase Console.", "error");
             statusEl.textContent = "Auth Gagal";
             statusEl.className = "bg-red-500 text-white text-xs px-2 py-1 rounded shadow";
         });
@@ -369,7 +482,7 @@
             if (error.code === 'permission-denied') {
                 msg = "Akses Ditolak. Cek Rules di Firebase Console.";
             }
-            showError("Database Error", msg);
+            window.showAlert("Database Error", msg, "error");
             statusEl.textContent = "Error";
             statusEl.className = "bg-red-600 text-white text-xs px-2 py-1 rounded shadow";
         }
@@ -397,27 +510,32 @@
                 await addLog(name, 'SETUP', qty, 0, qty, 'Admin', 'Setup Awal', null);
 
                 document.getElementById('addItemForm').reset();
-                showToast("Barang berhasil disimpan!");
+                window.showAlert("Sukses", "Barang baru berhasil disimpan!", "success");
             } catch (err) {
-                alert("Gagal menyimpan: " + err.message);
+                window.showAlert("Gagal Menyimpan", err.message, "error");
             } finally {
                 btn.innerHTML = '<i class="fas fa-save mr-2"></i> Simpan ke Cloud';
                 btn.disabled = false;
             }
         };
 
-        window.deleteItem = async (id, name) => {
-            if (confirm(`Hapus ${name} dari database permanen?`)) {
-                try {
-                    await deleteDoc(doc(db, "inventory", id));
-                    showToast("Barang dihapus");
-                } catch (err) {
-                    alert("Gagal menghapus: " + err.message);
-                }
-            }
+        window.deleteItem = (id, name) => {
+            window.showConfirm(
+                "Hapus Barang?", 
+                `Apakah Anda yakin ingin menghapus <b>${name}</b>?<br>Data tidak bisa dikembalikan.`, 
+                async () => {
+                    try {
+                        await deleteDoc(doc(db, "inventory", id));
+                        showToast("Barang dihapus");
+                    } catch (err) {
+                        window.showAlert("Gagal Menghapus", err.message, "error");
+                    }
+                },
+                "danger"
+            );
         };
 
-        // --- FITUR BARU: EDIT BARANG ---
+        // --- FITUR EDIT BARANG ---
         window.openEditModal = (id) => {
             const item = inventory.find(i => i.id === id);
             if (!item) return;
@@ -432,7 +550,8 @@
             const newStock = parseInt(document.getElementById('editItemStock').value);
             
             if(!newName || isNaN(newStock)) {
-                alert("Data tidak valid"); return;
+                window.showAlert("Validasi", "Data tidak valid. Cek nama dan stok.", "warning");
+                return;
             }
 
             try {
@@ -443,46 +562,46 @@
                 document.getElementById('editItemModal').classList.add('hidden');
                 showToast("Data barang diperbarui");
             } catch(err) {
-                alert("Gagal update: " + err.message);
+                window.showAlert("Gagal Update", err.message, "error");
             }
         });
 
         // --- FITUR: HAPUS RIWAYAT & ROLLBACK STOK ---
-        window.deleteTransaction = async (logId) => {
+        window.deleteTransaction = (logId) => {
             const log = history.find(l => l.id === logId);
             if (!log) return;
 
-            const confirmMsg = `Hapus transaksi ini?\n\nPERINGATAN: Stok barang '${log.itemName}' akan dikembalikan ke kondisi sebelum transaksi ini terjadi.`;
-            if (!confirm(confirmMsg)) return;
+            window.showConfirm(
+                "Hapus & Rollback?", 
+                `Hapus transaksi ini?<br><br><span class="text-red-600 text-sm">PERINGATAN: Stok barang <b>'${log.itemName}'</b> akan dikembalikan ke kondisi sebelum transaksi ini terjadi.</span>`, 
+                async () => {
+                    try {
+                        const item = inventory.find(i => i.name === log.itemName);
 
-            try {
-                const item = inventory.find(i => i.name === log.itemName);
+                        if (item && log.type !== 'SETUP') {
+                            let revertedStock = item.stock;
+                            if (log.type === 'DEPOSIT') {
+                                revertedStock = item.stock - log.amount; 
+                            } else if (log.type === 'WITHDRAW') {
+                                revertedStock = item.stock + log.amount; 
+                            }
+                            if (revertedStock < 0) revertedStock = 0; 
 
-                if (item && log.type !== 'SETUP') {
-                    let revertedStock = item.stock;
-                    // Logic Rollback: Kebalikan dari operasi awal
-                    if (log.type === 'DEPOSIT') {
-                        revertedStock = item.stock - log.amount; // Dulu nambah, skrg kurang
-                    } else if (log.type === 'WITHDRAW') {
-                        revertedStock = item.stock + log.amount; // Dulu kurang, skrg nambah
+                            await updateDoc(doc(db, "inventory", item.id), {
+                                stock: revertedStock
+                            });
+                        }
+
+                        await deleteDoc(doc(db, "history", logId));
+                        showToast("Transaksi dihapus & stok dikembalikan.");
+
+                    } catch (err) {
+                        console.error(err);
+                        window.showAlert("Error", "Gagal menghapus transaksi: " + err.message, "error");
                     }
-
-                    if (revertedStock < 0) revertedStock = 0; // Safety
-
-                    await updateDoc(doc(db, "inventory", item.id), {
-                        stock: revertedStock
-                    });
-                } else if (!item && log.type !== 'SETUP') {
-                    if(!confirm("Barang sudah tidak ada di gudang. Hapus log saja?")) return;
-                }
-
-                await deleteDoc(doc(db, "history", logId));
-                showToast("Transaksi dihapus & stok dikembalikan.");
-
-            } catch (err) {
-                console.error(err);
-                alert("Gagal menghapus transaksi: " + err.message);
-            }
+                },
+                "danger"
+            );
         };
 
         // --- 3. TRANSAKSI (DP/WD) ---
@@ -558,10 +677,10 @@
 
                 await addLog(item.name, currentTransactionType, amount, item.stock, newStock, pic, desc, imgData);
 
-                showToast("Transaksi Berhasil!");
+                window.showAlert("Berhasil", "Transaksi berhasil dicatat!", "success");
                 closeModal();
             } catch (err) {
-                alert("Error: " + err.message);
+                window.showAlert("Error", err.message, "error");
             } finally {
                 confirmBtn.disabled = false;
                 confirmBtn.textContent = "Konfirmasi";
@@ -597,10 +716,10 @@
                     <td class="py-3 px-2 font-medium">${item.name}</td>
                     <td class="py-3 px-2 text-center"><span class="px-2 py-1 rounded-full text-xs font-bold ${color}">${item.stock}</span></td>
                     <td class="py-3 px-2 text-center flex justify-center space-x-2">
-                        <button onclick="openModal('${item.id}', 'DEPOSIT')" class="bg-blue-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-blue-600 shadow-sm" title="Tambah Stok"><i class="fas fa-plus"></i></button>
-                        <button onclick="openModal('${item.id}', 'WITHDRAW')" class="bg-orange-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-orange-600 shadow-sm" title="Kurangi Stok"><i class="fas fa-minus"></i></button>
-                        <button onclick="openEditModal('${item.id}')" class="bg-gray-100 text-gray-600 w-8 h-8 rounded flex items-center justify-center hover:bg-gray-200 shadow-sm" title="Edit Barang"><i class="fas fa-pen"></i></button>
-                        <button onclick="deleteItem('${item.id}', '${item.name}')" class="bg-gray-100 text-gray-600 w-8 h-8 rounded flex items-center justify-center hover:bg-red-500 hover:text-white shadow-sm" title="Hapus Barang"><i class="fas fa-trash"></i></button>
+                        <button onclick="openModal('${item.id}', 'DEPOSIT')" class="bg-blue-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-blue-600 shadow-sm transition transform hover:scale-110" title="Tambah Stok"><i class="fas fa-plus"></i></button>
+                        <button onclick="openModal('${item.id}', 'WITHDRAW')" class="bg-orange-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-orange-600 shadow-sm transition transform hover:scale-110" title="Kurangi Stok"><i class="fas fa-minus"></i></button>
+                        <button onclick="openEditModal('${item.id}')" class="bg-gray-100 text-gray-600 w-8 h-8 rounded flex items-center justify-center hover:bg-gray-200 shadow-sm transition" title="Edit Barang"><i class="fas fa-pen"></i></button>
+                        <button onclick="deleteItem('${item.id}', '${item.name}')" class="bg-gray-100 text-gray-600 w-8 h-8 rounded flex items-center justify-center hover:bg-red-500 hover:text-white shadow-sm transition" title="Hapus Barang"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -686,8 +805,8 @@
             const tpl = originalTpl.cloneNode(true);
             tpl.removeAttribute('id');
             tpl.classList.remove('hidden');
-            tpl.style.width = "100%"; // Fit to container
-            tpl.style.boxShadow = "none"; // Remove duplicate shadow
+            tpl.style.width = "100%"; 
+            tpl.style.boxShadow = "none";
 
             // 2. Isi Data
             tpl.querySelector('#recDate').textContent = log.date;
@@ -722,15 +841,15 @@
 
             // 4. Masukkan ke Modal Preview
             const container = document.getElementById('reportPreviewContainer');
-            container.innerHTML = ''; // Bersihkan preview sebelumnya
+            container.innerHTML = ''; 
             container.appendChild(tpl);
-            currentReportElement = tpl; // Simpan referensi untuk download nanti
+            currentReportElement = tpl; 
 
             // 5. Tampilkan Modal
             document.getElementById('reportModal').classList.remove('hidden');
         };
 
-        // Fungsi Download dari Modal (FIXED TARGETING PREVIEW ELEMENT)
+        // Fungsi Download dari Modal
         document.getElementById('btnDownloadReport').addEventListener('click', () => {
             if(!currentReportElement) return;
             
@@ -739,7 +858,6 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
             btn.disabled = true;
 
-            // Target the PREVIEW element directly, which is already rendered
             html2canvas(currentReportElement, {
                 scale: 2,
                 backgroundColor: '#ffffff',
@@ -748,17 +866,17 @@
                 logging: false
             }).then(canvas => {
                 const link = document.createElement('a');
-                // Extract data from the element currently in DOM
                 const typeText = currentReportElement.querySelector('#recType').textContent;
                 const itemName = currentReportElement.querySelector('#recItem').textContent;
                 
                 link.download = `Report_${typeText}_${itemName}.png`;
                 link.href = canvas.toDataURL();
                 link.click();
-                showToast("Report berhasil diunduh!");
+                
+                window.showAlert("Berhasil", "Laporan berhasil diunduh!", "success");
             }).catch(err => {
                 console.error(err);
-                alert("Gagal download: " + err.message);
+                window.showAlert("Gagal Download", err.message, "error");
             }).finally(() => {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -775,6 +893,7 @@
                 link.download = `Laporan_Gudang_${Date.now()}.png`;
                 link.href = canvas.toDataURL();
                 link.click();
+                showToast("Tabel berhasil disimpan sebagai gambar");
             });
         };
 
@@ -788,13 +907,6 @@
             document.getElementById('toastMessage').textContent = msg;
             t.classList.remove('translate-y-20');
             setTimeout(() => t.classList.add('translate-y-20'), 3000);
-        }
-        
-        function showError(title, msg) {
-            const banner = document.getElementById('errorBanner');
-            const txt = document.getElementById('errorText');
-            txt.innerHTML = `<strong>${title}:</strong> ${msg}`;
-            banner.classList.remove('hidden');
         }
 
         document.getElementById('currentDate').textContent = getFormattedDate();
