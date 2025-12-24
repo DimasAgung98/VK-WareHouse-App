@@ -184,7 +184,8 @@
     </div>
 
     <!-- Template Report (Desain Baru & Rapi) -->
-    <div id="receiptTemplate" class="fixed receipt-bg p-8 rounded-none w-[450px] shadow-2xl border border-gray-200 text-gray-800 font-mono" style="z-index:-10; opacity:0; pointer-events:none;">
+    <!-- PERBAIKAN: Menggunakan position absolute left -9999px bukan opacity 0 agar html2canvas merender gambar dengan benar -->
+    <div id="receiptTemplate" class="absolute left-[-9999px] top-0 receipt-bg p-8 rounded-none w-[450px] shadow-2xl border border-gray-200 text-gray-800 font-mono">
         <!-- Header -->
         <div class="text-center border-b-2 border-gray-800 pb-4 mb-6">
             <h2 class="text-3xl font-bold tracking-tighter text-gray-900 mb-1">WAREHOUSE</h2>
@@ -670,36 +671,52 @@
             const imgCont = document.getElementById('receiptImgCont');
             const imgEl = document.getElementById('receiptImg');
             
+            // PERBAIKAN LOGIKA LOAD GAMBAR
+            // Reset dulu
+            imgEl.onload = null;
+            imgEl.src = "";
+
             if(log.image) {
-                imgEl.src = log.image;
                 imgCont.classList.remove('hidden');
                 
-                // PENTING: Tunggu gambar dimuat sebelum capture
+                // Set handler SEBELUM set src
                 imgEl.onload = () => {
+                    setTimeout(captureNow, 200); // Jeda sedikit agar render tuntas
+                };
+                
+                imgEl.onerror = () => {
+                    console.warn("Gagal load gambar, tetap print tanpa gambar");
                     captureNow();
+                };
+
+                imgEl.src = log.image;
+
+                // Fallback jika sudah cached dan onload tidak fire
+                if (imgEl.complete && imgEl.naturalWidth > 0) {
+                    setTimeout(captureNow, 100);
                 }
             } else {
                 imgCont.classList.add('hidden');
-                captureNow();
+                setTimeout(captureNow, 100);
             }
 
             function captureNow() {
                 const tpl = document.getElementById('receiptTemplate');
-                tpl.style.opacity = '1';
+                // Tidak perlu opacity 1 karena position absolute -9999px sudah cukup menyembunyikan tapi tetap renderable
                 
                 html2canvas(tpl, { 
                     scale: 2,
                     backgroundColor: '#ffffff',
-                    useCORS: true // Penting untuk gambar
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false
                 }).then(canvas => {
-                    tpl.style.opacity = '0';
                     const link = document.createElement('a');
                     link.download = `Report_${log.type}_${log.itemName}.png`;
                     link.href = canvas.toDataURL();
                     link.click();
                 }).catch(err => {
                     console.error("Gagal screenshot:", err);
-                    tpl.style.opacity = '0';
                     alert("Gagal membuat report: " + err.message);
                 });
             }
