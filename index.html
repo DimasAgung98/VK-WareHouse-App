@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Manajemen Gudang (Online)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="bg-blue-700 text-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-warehouse text-2xl"></i>
+                <h1 class="text-xl font-bold tracking-wide">Warehouse Cloud</h1>
+            </div>
+            <div class="text-sm opacity-90">
+                <span id="connectionStatus" class="bg-yellow-500 text-xs px-2 py-1 rounded">Connecting...</span>
+                <span id="currentDate" class="ml-2 hidden md:inline"></span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Input Barang -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-xl shadow-md p-6 sticky top-24">
+                    <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2"><i class="fas fa-plus-circle mr-2"></i>Setup Barang Baru</h2>
+                    <form id="addItemForm">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
+                            <input type="text" id="itemName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Stok Awal</label>
+                            <input type="number" id="itemQty" required min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <button type="submit" id="btnSaveItem" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-md flex justify-center items-center">
+                            <i class="fas fa-save mr-2"></i> Simpan ke Cloud
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Daftar & Riwayat -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Tabel Stok -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-boxes mr-2 text-blue-600"></i>Daftar Barang</h2>
+                        <span class="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full" id="totalItemsBadge">Loading...</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-sm text-gray-500 border-b bg-gray-50">
+                                    <th class="py-3 px-2">Nama Barang</th>
+                                    <th class="py-3 px-2 text-center">Stok</th>
+                                    <th class="py-3 px-2 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventoryTableBody" class="text-sm">
+                                <tr><td colspan="3" class="text-center py-4">Memuat data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tabel Riwayat -->
+                <div class="bg-white rounded-xl shadow-md p-6" id="historySection">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-history mr-2 text-purple-600"></i>Riwayat Transaksi</h2>
+                        <button onclick="takeScreenshotTable()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg border transition"><i class="fas fa-table mr-2"></i> Save Table</button>
+                    </div>
+                    <div id="historyCaptureArea" class="bg-white p-2 rounded">
+                        <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                            <table class="w-full text-left border-collapse min-w-[600px]">
+                                <thead class="sticky top-0 bg-white shadow-sm z-10">
+                                    <tr class="text-xs uppercase text-gray-500 border-b bg-gray-50">
+                                        <th class="py-2 px-2">Tanggal</th>
+                                        <th class="py-2 px-2">Barang</th>
+                                        <th class="py-2 px-2 text-center">Tipe</th>
+                                        <th class="py-2 px-2 text-center">Jml</th>
+                                        <th class="py-2 px-2 text-center">Awal</th>
+                                        <th class="py-2 px-2 text-center">Akhir</th>
+                                        <th class="py-2 px-2">PIC</th>
+                                        <th class="py-2 px-2">Ket</th>
+                                        <th class="py-2 px-2 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody" class="text-sm"></tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4 text-xs text-gray-400 text-right italic" id="watermark" style="display: none;">Dibuat dengan Warehouse App</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Transaksi -->
+    <div id="transactionModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 backdrop-blur-sm p-4 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 m-auto">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 class="text-xl font-bold text-gray-800" id="modalTitle">Transaksi</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="mb-4 bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                <p class="font-bold text-lg text-blue-800" id="modalItemName">-</p>
+                <span class="text-xs bg-gray-200 px-2 py-1 rounded">Stok: <span id="modalCurrentStock" class="font-bold">0</span></span>
+            </div>
+            <div class="space-y-3 mb-6">
+                <input type="number" id="transactionAmount" min="1" class="w-full px-4 py-2 border rounded-lg" placeholder="Jumlah">
+                <input type="text" id="transactionPIC" class="w-full px-4 py-2 border rounded-lg" placeholder="Nama PIC">
+                <textarea id="transactionDesc" rows="2" class="w-full px-4 py-2 border rounded-lg" placeholder="Keterangan"></textarea>
+                <div class="border rounded-lg p-2">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Bukti Foto (Max 500KB - Otomatis Kompres)</label>
+                    <input type="file" id="transactionImage" accept="image/*" class="text-xs w-full">
+                </div>
+                <p id="errorMsg" class="text-red-500 text-xs hidden">Stok tidak cukup!</p>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="closeModal()" class="flex-1 py-2 border rounded-lg text-gray-700">Batal</button>
+                <button id="confirmBtn" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold shadow hover:bg-blue-700">Konfirmasi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Preview Image -->
+    <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-80 hidden flex items-center justify-center z-50 p-4" onclick="this.classList.add('hidden')">
+        <img id="fullImagePreview" src="" class="max-w-full max-h-screen rounded shadow-lg">
+    </div>
+
+    <!-- Hidden Receipt (Struk) -->
+    <div id="receiptTemplate" class="fixed bg-white p-6 rounded-lg w-[400px] border" style="z-index:-10; opacity:0; pointer-events:none;">
+        <div class="text-center mb-4 border-b pb-2"><h2 class="font-bold">BUKTI TRANSAKSI</h2></div>
+        <div class="space-y-2 text-sm" id="receiptContent">
+            <!-- Isi di inject JS -->
+        </div>
+        <div class="mt-2 text-center hidden" id="receiptImgCont"><img id="receiptImg" class="mx-auto max-h-40"></div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg translate-y-20 transition-transform duration-300 z-50">
+        <i class="fas fa-check-circle text-green-400 mr-2"></i> <span id="toastMessage"></span>
+    </div>
+
+    <!-- LOGIC SCRIPT (FIREBASE MODULE) -->
+    <script type="module">
+        // =========================================================================
+        // KONFIGURASI FIREBASE ANDA
+        // =========================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4jjcotqWX2WmCw73xrbh0g1eLHAL4_bY",
+            authDomain: "vk-warehouse-app-43ffe.firebaseapp.com",
+            projectId: "vk-warehouse-app-43ffe",
+            storageBucket: "vk-warehouse-app-43ffe.firebasestorage.app",
+            messagingSenderId: "801176842996",
+            appId: "1:801176842996:web:db57f614aeff016610a"
+        };
+        // =========================================================================
+
+        // Import Firebase SDK (Versi Modular)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, limit, serverTimestamp } 
+        from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        // Tambahan Auth agar tidak kena permission denied
+        import { getAuth, signInAnonymously, onAuthStateChanged } 
+        from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+        // Cek apakah user sudah mengganti config
+        if (firebaseConfig.projectId === "PROJECT_ID") {
+            document.body.innerHTML = `
+                <div class="flex items-center justify-center h-screen bg-red-100">
+                    <div class="bg-white p-8 rounded shadow-lg text-center max-w-lg">
+                        <h1 class="text-2xl font-bold text-red-600 mb-4">Konfigurasi Diperlukan</h1>
+                        <p class="mb-4">Anda belum mengganti <code>firebaseConfig</code> di dalam file <code>index.html</code>.</p>
+                        <p class="text-sm text-gray-600">Silakan buka file kodenya, cari bagian "firebaseConfig", dan ganti dengan data dari Firebase Console (Project Settings).</p>
+                    </div>
+                </div>
+            `;
+            throw new Error("Firebase Config belum diatur.");
+        }
+
+        // Init Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // State Global
+        let inventory = [];
+        let history = [];
+        let currentSelectedId = null;
+        let currentTransactionType = '';
+
+        // UI References
+        const statusEl = document.getElementById('connectionStatus');
+        const confirmBtn = document.getElementById('confirmBtn');
+
+        // --- 0. AUTHENTICATION (ANONYMOUS) ---
+        // Kita login secara anonim agar bisa membaca/tulis database jika rules diatur "allow read, write: if request.auth != null;"
+        
+        signInAnonymously(auth).catch((error) => {
+            console.error("Auth Error:", error);
+            statusEl.textContent = "Auth Error";
+            statusEl.className = "bg-red-500 text-white text-xs px-2 py-1 rounded";
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in, start listeners
+                startListeners();
+            } else {
+                statusEl.textContent = "Menunggu Login...";
+            }
+        });
+
+        // --- 1. SINKRONISASI DATA (REALTIME) ---
+        function startListeners() {
+            // Listener Inventory
+            onSnapshot(query(collection(db, "inventory"), orderBy("name")), (snapshot) => {
+                inventory = [];
+                snapshot.forEach((doc) => {
+                    inventory.push({ id: doc.id, ...doc.data() });
+                });
+                renderInventory();
+                statusEl.textContent = "Online";
+                statusEl.className = "bg-green-500 text-white text-xs px-2 py-1 rounded";
+            }, (error) => {
+                console.error("Firestore Error:", error);
+                if (error.code === 'permission-denied') {
+                    statusEl.textContent = "Akses Ditolak (Cek Rules)";
+                    alert("Akses Ditolak! Pastikan 'Firestore Rules' di Firebase Console sudah diizinkan (Test Mode).");
+                } else {
+                    statusEl.textContent = "Offline/Error";
+                }
+                statusEl.className = "bg-red-500 text-white text-xs px-2 py-1 rounded";
+            });
+
+            // Listener History (Ambil 50 transaksi terakhir)
+            onSnapshot(query(collection(db, "history"), orderBy("timestamp", "desc"), limit(50)), (snapshot) => {
+                history = [];
+                snapshot.forEach((doc) => {
+                    history.push({ id: doc.id, ...doc.data() });
+                });
+                renderHistory();
+            });
+        }
+
+        // --- 2. FUNGSI UTAMA ---
+
+        // Tambah Barang Baru
+        window.handleAddItem = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('itemName').value.trim();
+            const qty = parseInt(document.getElementById('itemQty').value);
+            const btn = document.getElementById('btnSaveItem');
+
+            if (!name) return;
+
+            try {
+                btn.textContent = "Menyimpan...";
+                btn.disabled = true;
+
+                // Simpan ke Firestore
+                await addDoc(collection(db, "inventory"), {
+                    name: name,
+                    stock: qty,
+                    createdAt: serverTimestamp()
+                });
+
+                // Catat Log
+                await addLog(name, 'SETUP', qty, 0, qty, 'Admin', 'Setup Awal', null);
+
+                document.getElementById('addItemForm').reset();
+                showToast("Barang berhasil disimpan ke Cloud!");
+            } catch (err) {
+                alert("Gagal menyimpan: " + err.message);
+            } finally {
+                btn.innerHTML = '<i class="fas fa-save mr-2"></i> Simpan ke Cloud';
+                btn.disabled = false;
+            }
+        };
+
+        // Hapus Barang
+        window.deleteItem = async (id, name) => {
+            if (confirm(`Hapus ${name} dari database permanen?`)) {
+                try {
+                    await deleteDoc(doc(db, "inventory", id));
+                    showToast("Barang dihapus");
+                } catch (err) {
+                    alert("Gagal menghapus: " + err.message);
+                }
+            }
+        };
+
+        // --- 3. TRANSAKSI ---
+
+        window.openModal = (id, type) => {
+            const item = inventory.find(i => i.id === id);
+            if (!item) return;
+
+            currentSelectedId = id;
+            currentTransactionType = type;
+
+            document.getElementById('modalItemName').textContent = item.name;
+            document.getElementById('modalCurrentStock').textContent = item.stock;
+            document.getElementById('transactionAmount').value = '';
+            document.getElementById('transactionPIC').value = '';
+            document.getElementById('transactionDesc').value = '';
+            document.getElementById('transactionImage').value = '';
+            document.getElementById('errorMsg').classList.add('hidden');
+
+            const title = document.getElementById('modalTitle');
+            if (type === 'DEPOSIT') {
+                title.textContent = "Barang Masuk (Deposit)";
+                title.className = "text-xl font-bold text-blue-700";
+            } else {
+                title.textContent = "Barang Keluar (Withdraw)";
+                title.className = "text-xl font-bold text-orange-600";
+            }
+
+            document.getElementById('transactionModal').classList.remove('hidden');
+        };
+
+        window.closeModal = () => {
+            document.getElementById('transactionModal').classList.add('hidden');
+        };
+
+        // Eksekusi Transaksi
+        confirmBtn.addEventListener('click', async () => {
+            const amount = parseInt(document.getElementById('transactionAmount').value);
+            const pic = document.getElementById('transactionPIC').value || 'Tanpa Nama';
+            const desc = document.getElementById('transactionDesc').value || '-';
+            const imgInput = document.getElementById('transactionImage');
+
+            if (!amount || amount <= 0) return;
+
+            const item = inventory.find(i => i.id === currentSelectedId);
+            if (!item) return;
+
+            let newStock = item.stock;
+            if (currentTransactionType === 'WITHDRAW') {
+                if (amount > item.stock) {
+                    document.getElementById('errorMsg').classList.remove('hidden');
+                    return;
+                }
+                newStock -= amount;
+            } else {
+                newStock += amount;
+            }
+
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = "Memproses...";
+
+            try {
+                // Kompres Gambar jika ada
+                let imgData = null;
+                if (imgInput.files[0]) {
+                    imgData = await compressImage(imgInput.files[0]);
+                }
+
+                // 1. Update Stok Barang
+                await updateDoc(doc(db, "inventory", currentSelectedId), {
+                    stock: newStock
+                });
+
+                // 2. Tambah ke History
+                await addLog(item.name, currentTransactionType, amount, item.stock, newStock, pic, desc, imgData);
+
+                showToast("Transaksi Berhasil!");
+                closeModal();
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = "Konfirmasi";
+            }
+        });
+
+        // Helper: Tambah Log ke Firestore
+        async function addLog(itemName, type, amount, before, after, pic, desc, img) {
+            await addDoc(collection(db, "history"), {
+                date: getFormattedDate(),
+                timestamp: serverTimestamp(), // Untuk sorting
+                itemName, type, amount, before, after, pic, desc, 
+                image: img // Base64 string (Compressed)
+            });
+        }
+
+        // --- 4. UTILITIES ---
+
+        function renderInventory() {
+            const tbody = document.getElementById('inventoryTableBody');
+            document.getElementById('totalItemsBadge').textContent = `${inventory.length} Item`;
+            tbody.innerHTML = '';
+
+            inventory.forEach((item) => {
+                const color = item.stock > 10 ? 'bg-green-100 text-green-800' : (item.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800');
+                
+                const row = document.createElement('tr');
+                row.className = "border-b hover:bg-gray-50 fade-in";
+                row.innerHTML = `
+                    <td class="py-3 px-2 font-medium">${item.name}</td>
+                    <td class="py-3 px-2 text-center"><span class="px-2 py-1 rounded-full text-xs font-bold ${color}">${item.stock}</span></td>
+                    <td class="py-3 px-2 text-center flex justify-center space-x-2">
+                        <button onclick="openModal('${item.id}', 'DEPOSIT')" class="bg-blue-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-blue-600"><i class="fas fa-plus"></i></button>
+                        <button onclick="openModal('${item.id}', 'WITHDRAW')" class="bg-orange-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-orange-600"><i class="fas fa-minus"></i></button>
+                        <button onclick="deleteItem('${item.id}', '${item.name}')" class="bg-gray-200 text-gray-500 w-8 h-8 rounded flex items-center justify-center hover:bg-red-500 hover:text-white"><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderHistory() {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+            
+            history.forEach(log => {
+                let badge = log.type === 'DEPOSIT' ? '<span class="text-blue-600 bg-blue-50 px-2 py-1 rounded font-bold">DP</span>' : 
+                           (log.type === 'WITHDRAW' ? '<span class="text-orange-600 bg-orange-50 px-2 py-1 rounded font-bold">WD</span>' : '<span class="text-gray-500 font-bold">NEW</span>');
+                
+                let imgBtn = log.image ? `<button onclick="showImage('${log.id}')" class="text-blue-500 hover:text-blue-700"><i class="fas fa-eye"></i></button>` : '-';
+
+                const row = document.createElement('tr');
+                row.className = "border-b text-xs hover:bg-gray-50";
+                row.innerHTML = `
+                    <td class="py-2 px-2 whitespace-nowrap">${log.date}</td>
+                    <td class="py-2 px-2 font-medium">${log.itemName}</td>
+                    <td class="py-2 px-2 text-center">${badge}</td>
+                    <td class="py-2 px-2 text-center font-bold">${log.amount}</td>
+                    <td class="py-2 px-2 text-center text-gray-400">${log.before}</td>
+                    <td class="py-2 px-2 text-center font-semibold">${log.after}</td>
+                    <td class="py-2 px-2">${log.pic || '-'}</td>
+                    <td class="py-2 px-2 italic text-gray-500 truncate max-w-[100px]">${log.desc || '-'}</td>
+                    <td class="py-2 px-2 text-center flex justify-center space-x-2 items-center">
+                        ${imgBtn}
+                        <button onclick="takeRowScreenshot('${log.id}')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-camera"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Kompresi Gambar (PENTING UNTUK FIRESTORE)
+        const compressImage = (file) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 500; // Resize ke lebar 500px
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scaleSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Kompres kualitas 60%
+                    }
+                }
+            });
+        };
+
+        window.showImage = (id) => {
+            const log = history.find(l => l.id === id);
+            if(log && log.image) {
+                document.getElementById('fullImagePreview').src = log.image;
+                document.getElementById('imagePreviewModal').classList.remove('hidden');
+            }
+        };
+
+        window.takeRowScreenshot = (id) => {
+            const log = history.find(l => l.id === id);
+            if(!log) return;
+            // Isi Template Receipt (DOM manipulation logic sama seperti sebelumnya)
+            // ... Logic struk disederhanakan untuk brevity di Firebase context ...
+            // Gunakan logic screenshot yang sama seperti versi lokal
+            const tpl = document.getElementById('receiptTemplate');
+            document.getElementById('receiptContent').innerHTML = `
+                <div class="flex justify-between"><span>Tanggal:</span><span>${log.date}</span></div>
+                <div class="flex justify-between"><span>Barang:</span><span>${log.itemName}</span></div>
+                <div class="flex justify-between"><span>Tipe:</span><span class="font-bold">${log.type}</span></div>
+                <div class="flex justify-between"><span>Jumlah:</span><span class="text-lg font-bold">${log.amount}</span></div>
+                <div class="flex justify-between text-xs text-gray-500 mt-2"><span>Awal: ${log.before}</span><span>Akhir: ${log.after}</span></div>
+                <p class="mt-2 text-xs italic bg-gray-50 p-1">${log.desc}</p>
+                <div class="mt-1 text-right text-xs">PIC: ${log.pic}</div>
+            `;
+            const imgC = document.getElementById('receiptImgCont');
+            const img = document.getElementById('receiptImg');
+            if(log.image) { img.src = log.image; imgC.classList.remove('hidden'); } 
+            else { imgC.classList.add('hidden'); }
+
+            tpl.style.opacity = '1';
+            html2canvas(tpl, { scale: 2 }).then(canvas => {
+                tpl.style.opacity = '0';
+                const link = document.createElement('a');
+                link.download = `Bukti_${log.type}_${Date.now()}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        };
+
+        window.takeScreenshotTable = () => {
+             html2canvas(document.getElementById('historyCaptureArea'), { scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Laporan_Gudang_${Date.now()}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        };
+
+        function getFormattedDate() {
+            const d = new Date();
+            return `${String(d.getDate()).padStart(2,'0')} - ${String(d.getMonth()+1).padStart(2,'0')} - ${String(d.getFullYear()).slice(-2)}`;
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = msg;
+            t.classList.remove('translate-y-20');
+            setTimeout(() => t.classList.add('translate-y-20'), 3000);
+        }
+
+        // Tampilkan tanggal hari ini
+        document.getElementById('currentDate').textContent = getFormattedDate();
+    </script>
+</body>
+</html>
