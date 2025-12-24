@@ -10,6 +10,8 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- SheetJS (XLSX) untuk Import Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap');
@@ -42,7 +44,7 @@
                 <h1 class="text-xl font-bold tracking-wide">Vikrama <span class="text-[#aa9465]">Warehouse App</span></h1>
             </div>
             <div class="text-sm opacity-90">
-                <span id="connectionStatus" class="bg-yellow-500 text-xs px-2 py-1 rounded shadow animate-pulse">Connecting...</span>
+                <span id="connectionStatus" class="bg-yellow-500 text-xs px-2 py-1 rounded shadow">Connecting...</span>
                 <span id="currentDate" class="ml-2 hidden md:inline"></span>
             </div>
         </div>
@@ -60,7 +62,7 @@
             <!-- Input Resource -->
             <div class="lg:col-span-1">
                 <div class="bg-white rounded-xl shadow-md p-6 sticky top-24">
-                    <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2"><i class="fas fa-plus-circle mr-2"></i>Setup Resource</h2>
+                    <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2"><i class="fas fa-plus-circle mr-2"></i>Setup Resource Baru</h2>
                     <form id="addItemForm" onsubmit="handleAddItem(event)">
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nama Resource</label>
@@ -71,8 +73,14 @@
                             <input type="number" id="itemQty" required min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
                         </div>
                         <button type="submit" id="btnSaveItem" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-md flex justify-center items-center">
-                            <i class="fas fa-save mr-2"></i> Simpan Resource
+                            <i class="fas fa-save mr-2"></i> Simpan ke Cloud
                         </button>
+                        
+                        <!-- Template Download Info -->
+                        <div class="mt-4 pt-4 border-t text-xs text-gray-500">
+                            <p class="font-bold mb-1">Format Excel untuk Import:</p>
+                            <p>Kolom A: <b>Nama Resource</b> | Kolom B: <b>Stok</b></p>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -81,9 +89,22 @@
             <div class="lg:col-span-2 space-y-8">
                 <!-- Tabel Stok -->
                 <div class="bg-white rounded-xl shadow-md p-6">
-                    <div class="flex justify-between items-center mb-4 border-b pb-2">
-                        <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-boxes mr-2 text-blue-600"></i>Daftar Resource</h2>
-                        <span class="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full" id="totalItemsBadge">Loading...</span>
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-4 border-b pb-2 gap-3">
+                        <div class="flex items-center self-start md:self-center">
+                            <h2 class="text-lg font-bold text-gray-800 mr-3"><i class="fas fa-boxes mr-2 text-blue-600"></i>Daftar Resource</h2>
+                            <span class="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full" id="totalItemsBadge">Loading...</span>
+                        </div>
+                        <div class="flex space-x-2 self-end md:self-center">
+                            <!-- Tombol Import Excel -->
+                            <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelUpload(event)">
+                            <button onclick="document.getElementById('excelInput').click()" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg shadow transition flex items-center">
+                                <i class="fas fa-file-excel mr-2"></i> Import Excel
+                            </button>
+                            <!-- Tombol Update Massal -->
+                            <button onclick="openBulkModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg shadow transition flex items-center">
+                                <i class="fas fa-layer-group mr-2"></i> Update Massal
+                            </button>
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
@@ -105,7 +126,12 @@
                 <div class="bg-white rounded-xl shadow-md p-6" id="historySection">
                     <div class="flex justify-between items-center mb-4 border-b pb-2">
                         <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-history mr-2 text-purple-600"></i>Riwayat Transaksi</h2>
-                        <button onclick="takeScreenshotTable()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg border transition"><i class="fas fa-table mr-2"></i> Save Table</button>
+                        <div class="flex space-x-2">
+                            <button id="btnDeleteAllHist" onclick="deleteAllHistory()" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-lg border border-red-200 transition" title="Hapus Semua Riwayat">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                            <button onclick="takeScreenshotTable()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg border transition"><i class="fas fa-table mr-2"></i> Save Table</button>
+                        </div>
                     </div>
                     <div id="historyCaptureArea" class="bg-white p-2 rounded">
                         <div class="overflow-x-auto max-h-96 overflow-y-auto">
@@ -151,6 +177,68 @@
             <!-- Alert Actions -->
             <div id="alertActions" class="bg-gray-50 px-6 py-4 flex gap-3 justify-center">
                 <!-- Buttons injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Bulk Update (NEW FEATURE) -->
+    <div id="bulkUpdateModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 backdrop-blur-sm p-4 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 m-auto modal-scale flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-layer-group mr-2 text-indigo-600"></i>Update Stok Massal</h3>
+                <button onclick="document.getElementById('bulkUpdateModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 transition"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <!-- Global Settings for Batch -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                <!-- REMOVED GLOBAL TRANSACTION TYPE -->
+                <div>
+                     <label class="block text-xs font-bold text-gray-600 mb-1">PIC (Penanggung Jawab)</label>
+                     <input type="text" id="bulkPIC" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Nama PIC">
+                </div>
+                <div>
+                     <label class="block text-xs font-bold text-gray-600 mb-1">Keterangan / Catatan Batch</label>
+                     <input type="text" id="bulkDesc" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Contoh: Opname Akhir Tahun">
+                </div>
+                 <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-gray-600 mb-1">Bukti Foto (Opsional - Berlaku untuk semua)</label>
+                    <input type="file" id="bulkImage" accept="image/*" class="text-xs w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                </div>
+            </div>
+
+            <!-- Search Bar for Bulk Items (NEW) -->
+            <div class="mb-3">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </span>
+                    <input type="text" id="bulkSearchInput" onkeyup="filterBulkItems()" placeholder="Cari nama resource..." class="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition placeholder-gray-400">
+                </div>
+            </div>
+
+            <!-- Item List -->
+            <div class="flex-1 overflow-y-auto border rounded-lg mb-4 bg-white shadow-inner">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-100 sticky top-0 z-10 shadow-sm">
+                        <tr>
+                            <th class="p-3 text-xs font-bold text-gray-600">Nama Resource</th>
+                            <th class="p-3 text-xs font-bold text-gray-600 text-center w-20">Stok</th>
+                            <th class="p-3 text-xs font-bold text-gray-600 w-32">Aksi</th>
+                            <th class="p-3 text-xs font-bold text-gray-600 w-28">Jumlah</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bulkItemsBody">
+                        <!-- JS Injected -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center pt-2 border-t">
+                <div class="text-xs text-gray-500 italic">* Kosongkan jumlah jika item tidak diupdate.</div>
+                <div class="flex space-x-3">
+                    <button onclick="document.getElementById('bulkUpdateModal').classList.add('hidden')" class="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">Batal</button>
+                    <button id="btnBulkConfirm" onclick="handleBulkSubmit()" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700 text-sm transition">Proses Semua</button>
+                </div>
             </div>
         </div>
     </div>
@@ -236,7 +324,7 @@
             <div class="flex justify-between items-start">
                 <div>
                     <h2 class="text-2xl font-bold tracking-wide">VK WAREHOUSE</h2>
-                    <p class="text-blue-200 text-xs mt-1 tracking-wider">REPORT TRANSACTION</p>
+                    <p class="text-blue-200 text-xs mt-1 tracking-wider">OFFICIAL TRANSACTION DOCUMENT</p>
                 </div>
                 <div class="text-right">
                     <span id="recType" class="inline-block px-3 py-1 bg-white text-blue-800 rounded font-bold text-xs shadow">TYPE</span>
@@ -263,26 +351,44 @@
             <hr class="border-gray-100 my-4">
 
             <div class="mb-6">
-                <p class="text-gray-400 text-xs uppercase mb-2">Item Detail</p>
-                <div class="flex justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div>
+                <p class="text-gray-400 text-xs uppercase mb-2">Transaction Details</p>
+                
+                <!-- Single Item View -->
+                <div id="recSingleContainer" class="flex justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <div class="w-full">
                         <span class="block text-lg font-bold text-gray-800" id="recItem">Item Name</span>
-                        <div class="text-xs text-gray-500 mt-1 space-x-2">
-                            <span>Awal: <b id="recBefore">0</b></span>
+                        <div class="text-xs text-gray-500 mt-1 space-x-2 flex items-center">
+                            <span class="bg-white border px-1 rounded">Awal: <b id="recBefore">0</b></span>
                             <i class="fas fa-arrow-right text-gray-300"></i>
-                            <span>Akhir: <b id="recAfter">0</b></span>
+                            <span class="bg-white border px-1 rounded">Akhir: <b id="recAfter">0</b></span>
                         </div>
                     </div>
-                    <div class="text-center ml-4">
+                    <div class="text-center ml-4 min-w-[80px]">
                         <span class="block text-xs text-gray-400 mb-1">Quantity</span>
-                        <span class="block text-2xl font-bold text-blue-600" id="recAmount">0</span>
+                        <span class="block text-2xl font-bold" id="recAmount">0</span>
+                        <span class="block text-[10px] font-bold uppercase mt-1 px-2 py-0.5 rounded text-white" id="recBadge">TYPE</span>
                     </div>
+                </div>
+
+                <!-- Batch Item View (New Table) -->
+                <div id="recBatchContainer" class="hidden bg-gray-50 rounded-lg border border-gray-100 overflow-hidden">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100 text-xs text-gray-500 uppercase">
+                            <tr>
+                                <th class="py-2 px-3 text-left">Item Name & Stock</th>
+                                <th class="py-2 px-3 text-right">Change</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recBatchBody" class="divide-y divide-gray-200">
+                            <!-- Rows injected by JS -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
             <div class="mb-6">
                 <p class="text-gray-400 text-xs uppercase mb-1">Description / Notes</p>
-                <p id="recDesc" class="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3 py-1">No description.</p>
+                <p id="recDesc" class="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3 py-1 whitespace-pre-line">No description.</p>
             </div>
 
             <div id="receiptImgCont" class="hidden mt-4">
@@ -320,10 +426,237 @@
         // =========================================================================
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, limit, serverTimestamp, getDoc } 
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, limit, serverTimestamp, getDoc, getDocs, writeBatch } 
         from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } 
         from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+        // --- IMPORT EXCEL LOGIC ---
+        window.handleExcelUpload = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            e.target.value = '';
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (jsonData.length < 2) {
+                        window.showAlert("Data Kosong", "File Excel tidak berisi data.", "warning");
+                        return;
+                    }
+
+                    const rows = jsonData.slice(1);
+                    let successCount = 0;
+                    let skipCount = 0;
+                    const promises = [];
+
+                    window.showAlert("Memproses Import", "Sedang membaca file dan menyimpan ke database...", "info");
+
+                    for (let row of rows) {
+                        const name = row[0] ? String(row[0]).trim() : null;
+                        const stock = row[1] ? parseInt(row[1]) : 0;
+
+                        if (name) {
+                            const exists = inventory.some(i => i.name.toLowerCase() === name.toLowerCase());
+                            if (!exists) {
+                                promises.push(
+                                    (async () => {
+                                        await addDoc(collection(db, "inventory"), {
+                                            name: name,
+                                            stock: stock,
+                                            createdAt: serverTimestamp()
+                                        });
+                                        // Individual log for Setup
+                                        await addLog(name, 'IMPORT', stock, 0, stock, 'System', 'Import via Excel', null);
+                                        successCount++;
+                                    })()
+                                );
+                            } else {
+                                skipCount++;
+                            }
+                        }
+                    }
+
+                    await Promise.all(promises);
+                    window.showAlert("Import Selesai", `Berhasil: <b>${successCount}</b> item.<br>Dilewati (Duplikat): <b>${skipCount}</b> item.`, "success");
+
+                } catch (err) {
+                    console.error(err);
+                    window.showAlert("Gagal Import", "Format file tidak sesuai atau error membaca data.", "error");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        // --- BULK UPDATE LOGIC (IMPROVED) ---
+        window.filterBulkItems = () => {
+            const input = document.getElementById('bulkSearchInput');
+            const filter = input.value.toLowerCase();
+            const tbody = document.getElementById('bulkItemsBody');
+            const rows = tbody.getElementsByTagName('tr');
+
+            for (let i = 0; i < rows.length; i++) {
+                const nameCell = rows[i].getElementsByTagName('td')[0];
+                if (nameCell) {
+                    const txtValue = nameCell.textContent || nameCell.innerText;
+                    rows[i].style.display = txtValue.toLowerCase().indexOf(filter) > -1 ? "" : "none";
+                }
+            }
+        };
+
+        window.openBulkModal = () => {
+            if (inventory.length === 0) {
+                window.showAlert("Info", "Belum ada resource untuk diupdate.", "info");
+                return;
+            }
+
+            document.getElementById('bulkPIC').value = '';
+            document.getElementById('bulkDesc').value = '';
+            document.getElementById('bulkImage').value = '';
+            
+            const searchInput = document.getElementById('bulkSearchInput');
+            if(searchInput) searchInput.value = '';
+
+            const tbody = document.getElementById('bulkItemsBody');
+            tbody.innerHTML = '';
+
+            inventory.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="p-3 text-sm font-medium text-gray-700">${item.name}</td>
+                    <td class="p-3 text-sm text-center">
+                        <span class="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">${item.stock}</span>
+                    </td>
+                    <td class="p-3">
+                        <select class="bulk-action w-full px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-center bg-white">
+                            <option value="DEPOSIT">Masuk (+)</option>
+                            <option value="WITHDRAW">Keluar (-)</option>
+                        </select>
+                    </td>
+                    <td class="p-3">
+                        <input type="number" min="0" placeholder="0" data-id="${item.id}" data-name="${item.name}" data-stock="${item.stock}" class="bulk-input w-full px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-center">
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('bulkUpdateModal').classList.remove('hidden');
+        };
+
+        window.handleBulkSubmit = async () => {
+            const rows = document.querySelectorAll('#bulkItemsBody tr');
+            const pic = document.getElementById('bulkPIC').value || 'Batch Admin';
+            const desc = document.getElementById('bulkDesc').value || 'Update Massal';
+            const imgInput = document.getElementById('bulkImage');
+            
+            const updates = [];
+            const details = [];
+            
+            // Validasi & Collect Data
+            for (let row of rows) {
+                const input = row.querySelector('.bulk-input');
+                const select = row.querySelector('.bulk-action');
+                const amount = parseInt(input.value);
+                
+                if (amount && amount > 0) {
+                    const currentStock = parseInt(input.dataset.stock);
+                    const name = input.dataset.name;
+                    const id = input.dataset.id;
+                    const type = select.value;
+
+                    if (type === 'WITHDRAW' && amount > currentStock) {
+                        window.showAlert("Stok Kurang", `Stok <b>${name}</b> tidak cukup (Sisa: ${currentStock}, Diminta: ${amount}).`, "error");
+                        input.focus();
+                        return;
+                    }
+
+                    updates.push({ id, name, currentStock, amount, type });
+                }
+            }
+
+            if (updates.length === 0) {
+                window.showAlert("Info", "Tidak ada item yang diisi jumlahnya.", "warning");
+                return;
+            }
+
+            const btn = document.getElementById('btnBulkConfirm');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Memproses...';
+            btn.disabled = true;
+
+            try {
+                let imgData = null;
+                if (imgInput.files[0]) {
+                    imgData = await compressImage(imgInput.files[0]);
+                }
+
+                // 1. Process Updates & Build Detail Log
+                const promises = updates.map(async (item) => {
+                    let newStock = item.currentStock;
+                    let changeSymbol = '';
+                    
+                    if (item.type === 'DEPOSIT') {
+                        newStock += item.amount;
+                        changeSymbol = '+';
+                    } else {
+                        newStock -= item.amount;
+                        changeSymbol = '-';
+                    }
+
+                    // Update Inventory
+                    await updateDoc(doc(db, "inventory", item.id), {
+                        stock: newStock
+                    });
+
+                    // Add to details array for single log
+                    details.push({
+                        itemId: item.id,
+                        itemName: item.name,
+                        type: item.type,
+                        amount: item.amount,
+                        before: item.currentStock,
+                        after: newStock,
+                        symbol: changeSymbol
+                    });
+                });
+
+                await Promise.all(promises);
+
+                // 2. Create Single History Log (BATCH)
+                // Detail text for receipt/view
+                let detailText = details.map(d => `${d.itemName}: ${d.symbol}${d.amount}`).join('\n');
+                
+                await addDoc(collection(db, "history"), {
+                    date: getFormattedDate(),
+                    timestamp: serverTimestamp(),
+                    itemName: `Batch Update (${details.length} Items)`,
+                    type: 'BATCH',
+                    amount: 0, // Placeholder
+                    before: '-', // Placeholder
+                    after: '-', // Placeholder
+                    pic: pic,
+                    desc: `${desc}\n---\n${detailText}`,
+                    image: imgData,
+                    details: details // Store raw details for rollback
+                });
+
+                window.showAlert("Sukses", `Berhasil mengupdate <b>${updates.length}</b> resource secara massal.`, "success");
+                document.getElementById('bulkUpdateModal').classList.add('hidden');
+
+            } catch (err) {
+                console.error(err);
+                window.showAlert("Error", "Gagal memproses batch: " + err.message, "error");
+            } finally {
+                btn.innerHTML = 'Proses Semua';
+                btn.disabled = false;
+            }
+        };
 
         // --- CUSTOM ALERT SYSTEM LOGIC ---
         const alertModal = document.getElementById('customAlert');
@@ -334,16 +667,13 @@
         const alertActions = document.getElementById('alertActions');
         let currentConfirmCallback = null;
 
-        // Fungsi Global untuk menampilkan Alert
         window.showAlert = (title, message, type = 'info') => {
             alertTitle.textContent = title;
-            alertMessage.innerHTML = message; // Allow HTML for line breaks
-            alertActions.innerHTML = ''; // Reset buttons
+            alertMessage.innerHTML = message;
+            alertActions.innerHTML = '';
 
-            // Style Reset
             alertIconWrapper.className = 'w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors';
             
-            // Icon & Colors configuration
             if (type === 'success') {
                 alertIconWrapper.classList.add('bg-green-100', 'text-green-600');
                 alertIcon.className = 'fas fa-check text-3xl';
@@ -358,7 +688,6 @@
                 alertIcon.className = 'fas fa-info text-3xl';
             }
 
-            // Create OK Button
             const btn = document.createElement('button');
             btn.className = 'w-full px-4 py-2 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-900 transition';
             btn.textContent = 'OK';
@@ -368,7 +697,6 @@
             alertModal.classList.remove('hidden');
         };
 
-        // Fungsi Global untuk Confirmation
         window.showConfirm = (title, message, callback, type = 'warning') => {
             alertTitle.textContent = title;
             alertMessage.innerHTML = message;
@@ -383,13 +711,11 @@
                 alertIcon.className = 'fas fa-question text-3xl';
             }
 
-            // Cancel Button
             const btnCancel = document.createElement('button');
             btnCancel.className = 'flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition';
             btnCancel.textContent = 'Batal';
             btnCancel.onclick = closeAlert;
 
-            // Confirm Button
             const btnConfirm = document.createElement('button');
             const confirmColor = type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700';
             btnConfirm.className = `flex-1 px-4 py-2 ${confirmColor} text-white rounded-lg font-medium transition`;
@@ -409,8 +735,6 @@
             alertModal.classList.add('hidden');
             currentConfirmCallback = null;
         };
-
-        // --- END CUSTOM ALERT SYSTEM ---
 
         if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("API_KEY")) {
              window.showAlert("Config Error", "API Key belum diisi dengan benar.", "error");
@@ -435,7 +759,6 @@
         const statusEl = document.getElementById('connectionStatus');
         const confirmBtn = document.getElementById('confirmBtn');
 
-        // --- 0. AUTHENTICATION ---
         signInAnonymously(auth).catch((error) => {
             console.error("Auth Error:", error);
             window.showAlert("Gagal Login", "Pastikan 'Anonymous Auth' sudah diaktifkan di Firebase Console.", "error");
@@ -455,7 +778,6 @@
             }
         });
 
-        // --- 1. SINKRONISASI DATA ---
         function startListeners() {
             const qInv = query(collection(db, "inventory"), orderBy("name"));
             onSnapshot(qInv, (snapshot) => {
@@ -486,8 +808,6 @@
             statusEl.textContent = "Error";
             statusEl.className = "bg-red-600 text-white text-xs px-2 py-1 rounded shadow";
         }
-
-        // --- 2. FUNGSI UTAMA (CRUD & EDIT) ---
 
         window.handleAddItem = async (e) => {
             e.preventDefault();
@@ -520,22 +840,16 @@
         };
 
         window.deleteItem = (id, name) => {
-            window.showConfirm(
-                "Hapus Resource?", 
-                `Apakah Anda yakin ingin menghapus <b>${name}</b>?<br>Data tidak bisa dikembalikan.`, 
-                async () => {
-                    try {
-                        await deleteDoc(doc(db, "inventory", id));
-                        showToast("Resource dihapus");
-                    } catch (err) {
-                        window.showAlert("Gagal Menghapus", err.message, "error");
-                    }
-                },
-                "danger"
-            );
+            window.showConfirm("Hapus Resource?", `Apakah Anda yakin ingin menghapus <b>${name}</b>?`, async () => {
+                try {
+                    await deleteDoc(doc(db, "inventory", id));
+                    showToast("Resource dihapus");
+                } catch (err) {
+                    window.showAlert("Gagal Menghapus", err.message, "error");
+                }
+            }, "danger");
         };
 
-        // --- FITUR EDIT Resource ---
         window.openEditModal = (id) => {
             const item = inventory.find(i => i.id === id);
             if (!item) return;
@@ -555,10 +869,7 @@
             }
 
             try {
-                await updateDoc(doc(db, "inventory", currentEditId), {
-                    name: newName,
-                    stock: newStock
-                });
+                await updateDoc(doc(db, "inventory", currentEditId), { name: newName, stock: newStock });
                 document.getElementById('editItemModal').classList.add('hidden');
                 showToast("Data Resource diperbarui");
             } catch(err) {
@@ -566,45 +877,113 @@
             }
         });
 
-        // --- FITUR: HAPUS RIWAYAT & ROLLBACK STOK ---
+        // --- UPDATED DELETE TRANSACTION (ROLLBACK BATCH) ---
         window.deleteTransaction = (logId) => {
             const log = history.find(l => l.id === logId);
             if (!log) return;
 
-            window.showConfirm(
-                "Hapus & Rollback?", 
-                `Hapus transaksi ini?<br><br><span class="text-red-600 text-sm">PERINGATAN: Stok Resource <b>'${log.itemName}'</b> akan dikembalikan ke kondisi sebelum transaksi ini terjadi.</span>`, 
-                async () => {
-                    try {
-                        const item = inventory.find(i => i.name === log.itemName);
+            let msg = `Hapus transaksi ini?<br><br><span class="text-red-600 text-sm">PERINGATAN: Stok akan dikembalikan.</span>`;
+            if (log.type === 'BATCH') {
+                msg = `Hapus <b>Batch Update</b> ini?<br><br><span class="text-red-600 text-sm">PERINGATAN: Stok dari <b>${log.details ? log.details.length : 0} item</b> yang terlibat akan dikembalikan (Rollback).</span>`;
+            }
 
-                        if (item && log.type !== 'SETUP') {
-                            let revertedStock = item.stock;
-                            if (log.type === 'DEPOSIT') {
-                                revertedStock = item.stock - log.amount; 
-                            } else if (log.type === 'WITHDRAW') {
-                                revertedStock = item.stock + log.amount; 
+            window.showConfirm("Hapus & Rollback?", msg, async () => {
+                try {
+                    // Handle Batch Rollback
+                    if (log.type === 'BATCH' && log.details) {
+                        for (let detail of log.details) {
+                            const item = inventory.find(i => i.id === detail.itemId);
+                            if (item) {
+                                let revertedStock = item.stock;
+                                if (detail.type === 'DEPOSIT') {
+                                    revertedStock -= detail.amount;
+                                } else {
+                                    revertedStock += detail.amount;
+                                }
+                                if (revertedStock < 0) revertedStock = 0;
+                                await updateDoc(doc(db, "inventory", detail.itemId), { stock: revertedStock });
                             }
-                            if (revertedStock < 0) revertedStock = 0; 
+                        }
+                    } else {
+                        // Handle Single Rollback
+                        const item = inventory.find(i => i.name === log.itemName);
+                        if (item && log.type !== 'SETUP' && log.type !== 'IMPORT') {
+                            let revertedStock = item.stock;
+                            if (log.type === 'DEPOSIT') revertedStock -= log.amount;
+                            else if (log.type === 'WITHDRAW') revertedStock += log.amount;
+                            if (revertedStock < 0) revertedStock = 0;
+                            await updateDoc(doc(db, "inventory", item.id), { stock: revertedStock });
+                        }
+                    }
 
-                            await updateDoc(doc(db, "inventory", item.id), {
-                                stock: revertedStock
-                            });
+                    await deleteDoc(doc(db, "history", logId));
+                    showToast("Transaksi dihapus & stok dikembalikan.");
+
+                } catch (err) {
+                    console.error(err);
+                    window.showAlert("Error", "Gagal menghapus transaksi: " + err.message, "error");
+                }
+            }, "danger");
+        };
+
+        // --- NEW FEATURE: DELETE ALL HISTORY ---
+        window.deleteAllHistory = () => {
+            if (history.length === 0) {
+                window.showAlert("Info", "Riwayat transaksi sudah kosong.", "info");
+                return;
+            }
+
+            window.showConfirm(
+                "Hapus SEMUA Riwayat?", 
+                "Apakah Anda yakin ingin menghapus <b>seluruh catatan transaksi</b>?<br><br><span class='text-red-600 text-sm'><b>PENTING:</b> Stok Resource saat ini <u>TIDAK</u> akan berubah (tidak ada rollback). Hanya catatan log yang dihapus.</span>", 
+                async () => {
+                    const btn = document.getElementById('btnDeleteAllHist');
+                    const originalContent = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    btn.disabled = true;
+
+                    try {
+                        // 1. Get all documents in 'history' collection (not just the limited 50 view)
+                        const historyRef = collection(db, "history");
+                        const q = query(historyRef);
+                        const snapshot = await getDocs(q);
+
+                        if (snapshot.empty) {
+                            showToast("Riwayat sudah kosong.");
+                            return;
                         }
 
-                        await deleteDoc(doc(db, "history", logId));
-                        showToast("Transaksi dihapus & stok dikembalikan.");
+                        // 2. Delete in batches (Firestore limit is 500 per batch)
+                        const batchSize = 400; 
+                        const chunks = [];
+                        let docs = snapshot.docs;
+
+                        for (let i = 0; i < docs.length; i += batchSize) {
+                            chunks.push(docs.slice(i, i + batchSize));
+                        }
+
+                        // Execute batches
+                        for (const chunk of chunks) {
+                            const batch = writeBatch(db);
+                            chunk.forEach(doc => {
+                                batch.delete(doc.ref);
+                            });
+                            await batch.commit();
+                        }
+
+                        showToast("Seluruh riwayat berhasil dihapus.");
 
                     } catch (err) {
                         console.error(err);
-                        window.showAlert("Error", "Gagal menghapus transaksi: " + err.message, "error");
+                        window.showAlert("Error", "Gagal menghapus riwayat: " + err.message, "error");
+                    } finally {
+                        btn.innerHTML = originalContent;
+                        btn.disabled = false;
                     }
                 },
                 "danger"
             );
         };
-
-        // --- 3. TRANSAKSI (DP/WD) ---
 
         window.openModal = (id, type) => {
             const item = inventory.find(i => i.id === id);
@@ -671,10 +1050,7 @@
                     imgData = await compressImage(imgInput.files[0]);
                 }
 
-                await updateDoc(doc(db, "inventory", currentSelectedId), {
-                    stock: newStock
-                });
-
+                await updateDoc(doc(db, "inventory", currentSelectedId), { stock: newStock });
                 await addLog(item.name, currentTransactionType, amount, item.stock, newStock, pic, desc, imgData);
 
                 window.showAlert("Berhasil", "Transaksi berhasil dicatat!", "success");
@@ -695,8 +1071,6 @@
                 image: img
             });
         }
-
-        // --- 4. UTILITIES (UI & Helpers) ---
 
         function renderInventory() {
             const tbody = document.getElementById('inventoryTableBody');
@@ -739,6 +1113,7 @@
                 let badge = '';
                 if (log.type === 'DEPOSIT') badge = '<span class="text-blue-700 bg-blue-100 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200">DP</span>';
                 else if (log.type === 'WITHDRAW') badge = '<span class="text-orange-700 bg-orange-100 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-200">WD</span>';
+                else if (log.type === 'BATCH') badge = '<span class="text-purple-700 bg-purple-100 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-200">BATCH</span>';
                 else badge = '<span class="text-gray-600 bg-gray-100 px-2 py-0.5 rounded text-[10px] font-bold">NEW</span>';
                 
                 let imgBtn = log.image ? `<button onclick="showImage('${log.id}')" class="text-blue-500 hover:text-blue-700"><i class="fas fa-image"></i></button>` : '<span class="text-gray-300">-</span>';
@@ -749,11 +1124,11 @@
                     <td class="py-2 px-2 whitespace-nowrap text-gray-500">${log.date}</td>
                     <td class="py-2 px-2 font-medium text-gray-700">${log.itemName}</td>
                     <td class="py-2 px-2 text-center">${badge}</td>
-                    <td class="py-2 px-2 text-center font-bold text-gray-800">${log.amount}</td>
+                    <td class="py-2 px-2 text-center font-bold text-gray-800">${log.amount !== 0 ? log.amount : '-'}</td>
                     <td class="py-2 px-2 text-center text-gray-400">${log.before}</td>
                     <td class="py-2 px-2 text-center font-semibold text-gray-600">${log.after}</td>
                     <td class="py-2 px-2 text-gray-600">${log.pic || '-'}</td>
-                    <td class="py-2 px-2 italic text-gray-400 truncate max-w-[80px]">${log.desc || '-'}</td>
+                    <td class="py-2 px-2 italic text-gray-400 truncate max-w-[80px]" title="${log.desc || ''}">${log.desc ? (log.desc.length > 20 ? log.desc.substring(0, 20)+'...' : log.desc) : '-'}</td>
                     <td class="py-2 px-2 text-center">${imgBtn}</td>
                     <td class="py-2 px-2 text-center flex justify-center space-x-2 items-center">
                         <button onclick="takeRowScreenshot('${log.id}')" class="text-gray-400 hover:text-blue-600 transition" title="Print Report"><i class="fas fa-print"></i></button>
@@ -795,12 +1170,10 @@
             }
         };
 
-        // --- FUNGSI SCREENSHOT V5 (WITH PREVIEW MODAL) ---
         window.takeRowScreenshot = (id) => {
             const log = history.find(l => l.id === id);
             if (!log) return;
 
-            // 1. Siapkan Template
             const originalTpl = document.getElementById('receiptTemplate');
             const tpl = originalTpl.cloneNode(true);
             tpl.removeAttribute('id');
@@ -808,27 +1181,100 @@
             tpl.style.width = "100%"; 
             tpl.style.boxShadow = "none";
 
-            // 2. Isi Data
+            // Header Data
             tpl.querySelector('#recDate').textContent = log.date;
             tpl.querySelector('#recPIC').textContent = log.pic || '-';
             tpl.querySelector('#recID').textContent = log.id.substring(0,8).toUpperCase();
-            
-            let typeText = 'SETUP';
-            let typeClass = 'border-gray-300 text-gray-700 bg-gray-50';
-            if (log.type === 'DEPOSIT') { typeText = 'INBOUND (DP)'; typeClass = 'border-blue-500 text-blue-800 bg-blue-50'; }
-            else if (log.type === 'WITHDRAW') { typeText = 'OUTBOUND (WD)'; typeClass = 'border-orange-500 text-orange-800 bg-orange-50'; }
-            
-            const recType = tpl.querySelector('#recType');
-            recType.textContent = typeText;
-            recType.className = `inline-block px-3 py-1 rounded border-2 font-bold ${typeClass}`;
-            
-            tpl.querySelector('#recItem').textContent = log.itemName;
-            tpl.querySelector('#recAmount').textContent = log.amount;
-            tpl.querySelector('#recBefore').textContent = log.before;
-            tpl.querySelector('#recAfter').textContent = log.after;
-            tpl.querySelector('#recDesc').textContent = log.desc || '-';
+            tpl.querySelector('#recDesc').textContent = (log.type === 'BATCH' && log.desc.includes('---')) ? log.desc.split('---')[0] : (log.desc || '-'); // Clean desc for batch header
 
-            // 3. Handle Image
+            // Logic Tampilan (Single vs Batch)
+            const recType = tpl.querySelector('#recType');
+            const singleContainer = tpl.querySelector('#recSingleContainer');
+            const batchContainer = tpl.querySelector('#recBatchContainer');
+
+            if (log.type === 'BATCH') {
+                // --- MODE BATCH ---
+                recType.textContent = 'BATCH UPDATE';
+                recType.className = 'inline-block px-3 py-1 rounded border-2 font-bold border-purple-500 text-purple-800 bg-purple-50';
+                
+                singleContainer.classList.add('hidden');
+                batchContainer.classList.remove('hidden');
+
+                const tbody = tpl.querySelector('#recBatchBody');
+                tbody.innerHTML = '';
+
+                // Populate Table
+                if (log.details && log.details.length > 0) {
+                    log.details.forEach(d => {
+                        const isDepo = d.type === 'DEPOSIT';
+                        const colorClass = isDepo ? 'text-green-600' : 'text-orange-600';
+                        const sign = isDepo ? '+' : '-';
+                        const badgeColor = isDepo ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800';
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="py-2 px-3">
+                                <div class="font-bold text-gray-700">${d.itemName}</div>
+                                <div class="text-[10px] text-gray-400 mt-0.5">
+                                    Stok: ${d.before} <i class="fas fa-arrow-right mx-1"></i> <b>${d.after}</b>
+                                </div>
+                            </td>
+                            <td class="py-2 px-3 text-right align-top">
+                                <div class="font-bold text-lg ${colorClass}">${sign}${d.amount}</div>
+                                <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${badgeColor}">${isDepo ? 'DP' : 'WD'}</span>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    // Fallback if no details array (old data)
+                    tbody.innerHTML = `<tr><td colspan="2" class="p-3 text-center text-gray-400 italic">Detail item tidak tersedia untuk log lama.</td></tr>`;
+                }
+
+            } else {
+                // --- MODE SINGLE ---
+                singleContainer.classList.remove('hidden');
+                batchContainer.classList.add('hidden');
+
+                let typeText = 'SETUP';
+                let typeClass = 'border-gray-300 text-gray-700 bg-gray-50';
+                let amountColor = 'text-gray-800';
+                let amountSign = '';
+                let badgeBg = 'bg-gray-400';
+
+                if (log.type === 'DEPOSIT') { 
+                    typeText = 'INBOUND (DP)'; 
+                    typeClass = 'border-blue-500 text-blue-800 bg-blue-50'; 
+                    amountColor = 'text-green-600';
+                    amountSign = '+';
+                    badgeBg = 'bg-blue-600';
+                }
+                else if (log.type === 'WITHDRAW') { 
+                    typeText = 'OUTBOUND (WD)'; 
+                    typeClass = 'border-orange-500 text-orange-800 bg-orange-50'; 
+                    amountColor = 'text-orange-600';
+                    amountSign = '-';
+                    badgeBg = 'bg-orange-600';
+                }
+                
+                recType.textContent = typeText;
+                recType.className = `inline-block px-3 py-1 rounded border-2 font-bold ${typeClass}`;
+                
+                tpl.querySelector('#recItem').textContent = log.itemName;
+                
+                const amountEl = tpl.querySelector('#recAmount');
+                amountEl.textContent = `${amountSign}${log.amount}`;
+                amountEl.className = `block text-2xl font-bold ${amountColor}`;
+
+                const badgeEl = tpl.querySelector('#recBadge');
+                badgeEl.textContent = log.type;
+                badgeEl.className = `block text-[10px] font-bold uppercase mt-1 px-2 py-0.5 rounded text-white ${badgeBg}`;
+
+                tpl.querySelector('#recBefore').textContent = log.before;
+                tpl.querySelector('#recAfter').textContent = log.after;
+            }
+
+            // Image Handler
             const imgCont = tpl.querySelector('#receiptImgCont');
             const imgEl = tpl.querySelector('#receiptImg');
 
@@ -839,17 +1285,14 @@
                 imgCont.classList.add('hidden');
             }
 
-            // 4. Masukkan ke Modal Preview
             const container = document.getElementById('reportPreviewContainer');
             container.innerHTML = ''; 
             container.appendChild(tpl);
             currentReportElement = tpl; 
 
-            // 5. Tampilkan Modal
             document.getElementById('reportModal').classList.remove('hidden');
         };
 
-        // Fungsi Download dari Modal
         document.getElementById('btnDownloadReport').addEventListener('click', () => {
             if(!currentReportElement) return;
             
@@ -867,7 +1310,7 @@
             }).then(canvas => {
                 const link = document.createElement('a');
                 const typeText = currentReportElement.querySelector('#recType').textContent;
-                const itemName = currentReportElement.querySelector('#recItem').textContent;
+                const itemName = currentReportElement.querySelector('#recItem').textContent.replace(/[^a-z0-9]/gi, '_').toLowerCase();
                 
                 link.download = `Report_${typeText}_${itemName}.png`;
                 link.href = canvas.toDataURL();
@@ -913,5 +1356,3 @@
     </script>
 </body>
 </html>
-
-
