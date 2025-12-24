@@ -205,60 +205,71 @@
     </div>
 
     <!-- Template Report (Hidden Source) -->
-    <div id="receiptTemplate" class="hidden p-8 rounded-none w-[450px] bg-white border border-gray-200 text-gray-800 font-mono receipt-bg">
-        <!-- Header -->
-        <div class="text-center border-b-2 border-gray-800 pb-4 mb-6">
-            <h2 class="text-3xl font-bold tracking-tighter text-gray-900 mb-1">WAREHOUSE</h2>
-            <p class="text-sm text-gray-500 tracking-[0.2em] uppercase font-bold">TRANSACTION REPORT</p>
-        </div>
-
-        <!-- Meta Data -->
-        <div class="flex justify-between items-end mb-6 text-xs text-gray-600">
-            <div class="space-y-1">
-                <p>DATE: <span id="recDate" class="font-bold text-gray-900"></span></p>
-                <p>PIC : <span id="recPIC" class="font-bold text-gray-900"></span></p>
-                <p>ID  : <span id="recID" class="font-bold text-gray-900"></span></p>
-            </div>
-            <div class="text-right">
-                <span id="recType" class="inline-block px-3 py-1 rounded border-2 border-gray-800 font-bold text-gray-900">TYPE</span>
+    <div id="receiptTemplate" class="hidden bg-white text-gray-800 font-sans shadow-none" style="width: 500px; padding: 0;">
+        <div class="bg-blue-800 text-white p-6 rounded-t-lg">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 class="text-2xl font-bold tracking-wide">WAREHOUSE REPORT</h2>
+                    <p class="text-blue-200 text-xs mt-1 tracking-wider">OFFICIAL TRANSACTION DOCUMENT</p>
+                </div>
+                <div class="text-right">
+                    <span id="recType" class="inline-block px-3 py-1 bg-white text-blue-800 rounded font-bold text-xs shadow">TYPE</span>
+                </div>
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="border-y-2 border-dashed border-gray-400 py-4 mb-4">
-            <div class="flex justify-between mb-2">
-                <span class="font-bold text-lg" id="recItem">Item Name</span>
+        <div class="p-6 border-x border-b border-gray-200 rounded-b-lg bg-white">
+            <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
+                <div>
+                    <p class="text-gray-400 text-xs uppercase mb-1">Transaction ID</p>
+                    <p id="recID" class="font-mono font-bold text-gray-700">#ID</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-gray-400 text-xs uppercase mb-1">Date</p>
+                    <p id="recDate" class="font-bold text-gray-700">-</p>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs uppercase mb-1">PIC (Person In Charge)</p>
+                    <p id="recPIC" class="font-bold text-gray-700">-</p>
+                </div>
             </div>
-            <div class="flex justify-between items-center text-sm">
-                <span>Quantity</span>
-                <span class="font-bold text-xl" id="recAmount">0</span>
+
+            <hr class="border-gray-100 my-4">
+
+            <div class="mb-6">
+                <p class="text-gray-400 text-xs uppercase mb-2">Item Detail</p>
+                <div class="flex justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <div>
+                        <span class="block text-lg font-bold text-gray-800" id="recItem">Item Name</span>
+                        <div class="text-xs text-gray-500 mt-1 space-x-2">
+                            <span>Awal: <b id="recBefore">0</b></span>
+                            <i class="fas fa-arrow-right text-gray-300"></i>
+                            <span>Akhir: <b id="recAfter">0</b></span>
+                        </div>
+                    </div>
+                    <div class="text-center ml-4">
+                        <span class="block text-xs text-gray-400 mb-1">Quantity</span>
+                        <span class="block text-2xl font-bold text-blue-600" id="recAmount">0</span>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <!-- Stock Details -->
-        <div class="flex justify-between text-xs text-gray-500 mb-4 bg-gray-50 p-2 rounded border border-gray-200">
-            <div>Stock Before: <span id="recBefore" class="font-bold text-gray-800">0</span></div>
-            <div>Stock After: <span id="recAfter" class="font-bold text-gray-800">0</span></div>
-        </div>
-
-        <!-- Notes -->
-        <div class="mb-4">
-            <p class="text-[10px] text-gray-400 uppercase mb-1">Description / Notes</p>
-            <div id="recDesc" class="text-sm bg-gray-100 p-2 rounded border-l-4 border-gray-400 italic text-gray-700 min-h-[40px]"></div>
-        </div>
-
-        <!-- Image Proof -->
-        <div id="receiptImgCont" class="hidden mt-4 pt-4 border-t border-gray-200 text-center">
-            <p class="text-[10px] text-gray-400 uppercase mb-2">Attached Proof</p>
-            <div class="p-2 border border-gray-300 inline-block rounded bg-white shadow-sm">
-                <img id="receiptImg" class="max-h-64 max-w-full rounded object-contain min-h-[100px]" crossorigin="anonymous">
+            <div class="mb-6">
+                <p class="text-gray-400 text-xs uppercase mb-1">Description / Notes</p>
+                <p id="recDesc" class="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3 py-1">No description.</p>
             </div>
-        </div>
 
-        <!-- Footer -->
-        <div class="mt-8 pt-4 border-t-2 border-gray-800 text-center">
-            <p class="text-[10px] text-gray-400">Generated by Warehouse Cloud System</p>
-            <p class="text-[10px] text-gray-300 mt-1">*** END OF REPORT ***</p>
+            <div id="receiptImgCont" class="hidden mt-4">
+                <p class="text-gray-400 text-xs uppercase mb-2">Attached Proof</p>
+                <div class="w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex justify-center p-2">
+                    <img id="receiptImg" class="max-h-64 object-contain rounded" style="display: block;">
+                </div>
+            </div>
+
+            <div class="mt-8 pt-4 border-t border-gray-100 flex justify-between items-end text-[10px] text-gray-400">
+                <span>Generated by Warehouse Cloud</span>
+                <span>*** VALID PROOF ***</span>
+            </div>
         </div>
     </div>
 
