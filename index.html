@@ -31,11 +31,17 @@
                 <h1 class="text-xl font-bold tracking-wide">Warehouse Cloud</h1>
             </div>
             <div class="text-sm opacity-90">
-                <span id="connectionStatus" class="bg-yellow-500 text-xs px-2 py-1 rounded">Connecting...</span>
+                <span id="connectionStatus" class="bg-yellow-500 text-xs px-2 py-1 rounded shadow">Connecting...</span>
                 <span id="currentDate" class="ml-2 hidden md:inline"></span>
             </div>
         </div>
     </nav>
+
+    <!-- Error Banner (Hidden by default) -->
+    <div id="errorBanner" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 container mx-auto mt-4" role="alert">
+        <p class="font-bold">Koneksi Bermasalah</p>
+        <p id="errorText">Pastikan Anonymous Auth aktif di Firebase Console.</p>
+    </div>
 
     <div class="container mx-auto px-4 py-8 max-w-7xl">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -44,7 +50,7 @@
             <div class="lg:col-span-1">
                 <div class="bg-white rounded-xl shadow-md p-6 sticky top-24">
                     <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2"><i class="fas fa-plus-circle mr-2"></i>Setup Barang Baru</h2>
-                    <form id="addItemForm">
+                    <form id="addItemForm" onsubmit="handleAddItem(event)">
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
                             <input type="text" id="itemName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
@@ -78,7 +84,7 @@
                                 </tr>
                             </thead>
                             <tbody id="inventoryTableBody" class="text-sm">
-                                <tr><td colspan="3" class="text-center py-4">Memuat data...</td></tr>
+                                <tr><td colspan="3" class="text-center py-4">Menunggu koneksi database...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -166,7 +172,7 @@
     <!-- LOGIC SCRIPT (FIREBASE MODULE) -->
     <script type="module">
         // =========================================================================
-        // KONFIGURASI FIREBASE ANDA
+        // KONFIGURASI FIREBASE ANDA (Sudah diisi sesuai permintaan)
         // =========================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyA4jjcotqWX2WmCw73xrbh0g1eLHAL4_bY",
@@ -178,32 +184,27 @@
         };
         // =========================================================================
 
-        // Import Firebase SDK (Versi Modular)
+        // Import Firebase SDK
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, limit, serverTimestamp } 
         from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-        // Tambahan Auth agar tidak kena permission denied
         import { getAuth, signInAnonymously, onAuthStateChanged } 
         from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-        // Cek apakah user sudah mengganti config
-        if (firebaseConfig.projectId === "PROJECT_ID") {
-            document.body.innerHTML = `
-                <div class="flex items-center justify-center h-screen bg-red-100">
-                    <div class="bg-white p-8 rounded shadow-lg text-center max-w-lg">
-                        <h1 class="text-2xl font-bold text-red-600 mb-4">Konfigurasi Diperlukan</h1>
-                        <p class="mb-4">Anda belum mengganti <code>firebaseConfig</code> di dalam file <code>index.html</code>.</p>
-                        <p class="text-sm text-gray-600">Silakan buka file kodenya, cari bagian "firebaseConfig", dan ganti dengan data dari Firebase Console (Project Settings).</p>
-                    </div>
-                </div>
-            `;
-            throw new Error("Firebase Config belum diatur.");
+        // Cek dasar
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("API_KEY")) {
+             showError("Config Error", "API Key belum diisi dengan benar.");
         }
 
         // Init Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+        let app, db, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch (e) {
+            showError("Init Error", e.message);
+        }
 
         // State Global
         let inventory = [];
@@ -215,61 +216,70 @@
         const statusEl = document.getElementById('connectionStatus');
         const confirmBtn = document.getElementById('confirmBtn');
 
-        // --- 0. AUTHENTICATION (ANONYMOUS) ---
-        // Kita login secara anonim agar bisa membaca/tulis database jika rules diatur "allow read, write: if request.auth != null;"
-        
+        // --- 0. AUTHENTICATION ---
+        // Login Anonim (Wajib diaktifkan di Firebase Console -> Auth -> Sign-in method)
         signInAnonymously(auth).catch((error) => {
             console.error("Auth Error:", error);
-            statusEl.textContent = "Auth Error";
-            statusEl.className = "bg-red-500 text-white text-xs px-2 py-1 rounded";
+            showError("Gagal Login", "Pastikan 'Anonymous Auth' sudah diaktifkan di Firebase Console. Error: " + error.code);
+            statusEl.textContent = "Auth Gagal";
+            statusEl.className = "bg-red-500 text-white text-xs px-2 py-1 rounded shadow";
         });
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // User is signed in, start listeners
+                // User login sukses, mulai ambil data
+                statusEl.textContent = "Connected";
+                statusEl.className = "bg-green-500 text-white text-xs px-2 py-1 rounded shadow";
+                document.getElementById('errorBanner').classList.add('hidden');
                 startListeners();
             } else {
                 statusEl.textContent = "Menunggu Login...";
+                statusEl.className = "bg-yellow-500 text-white text-xs px-2 py-1 rounded shadow";
             }
         });
 
-        // --- 1. SINKRONISASI DATA (REALTIME) ---
+        // --- 1. SINKRONISASI DATA ---
         function startListeners() {
             // Listener Inventory
-            onSnapshot(query(collection(db, "inventory"), orderBy("name")), (snapshot) => {
+            const qInv = query(collection(db, "inventory"), orderBy("name"));
+            onSnapshot(qInv, (snapshot) => {
                 inventory = [];
                 snapshot.forEach((doc) => {
                     inventory.push({ id: doc.id, ...doc.data() });
                 });
                 renderInventory();
-                statusEl.textContent = "Online";
-                statusEl.className = "bg-green-500 text-white text-xs px-2 py-1 rounded";
             }, (error) => {
-                console.error("Firestore Error:", error);
-                if (error.code === 'permission-denied') {
-                    statusEl.textContent = "Akses Ditolak (Cek Rules)";
-                    alert("Akses Ditolak! Pastikan 'Firestore Rules' di Firebase Console sudah diizinkan (Test Mode).");
-                } else {
-                    statusEl.textContent = "Offline/Error";
-                }
-                statusEl.className = "bg-red-500 text-white text-xs px-2 py-1 rounded";
+                handleFirebaseError(error);
             });
 
-            // Listener History (Ambil 50 transaksi terakhir)
-            onSnapshot(query(collection(db, "history"), orderBy("timestamp", "desc"), limit(50)), (snapshot) => {
+            // Listener History
+            const qHist = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(50));
+            onSnapshot(qHist, (snapshot) => {
                 history = [];
                 snapshot.forEach((doc) => {
                     history.push({ id: doc.id, ...doc.data() });
                 });
                 renderHistory();
+            }, (error) => {
+                console.error("History Error:", error);
             });
+        }
+
+        function handleFirebaseError(error) {
+            console.error("Firebase Error:", error);
+            let msg = error.message;
+            if (error.code === 'permission-denied') {
+                msg = "Akses Ditolak. Pastikan 'Firestore Rules' diatur ke 'allow read, write: if request.auth != null;'";
+            }
+            showError("Database Error", msg);
+            statusEl.textContent = "Error";
+            statusEl.className = "bg-red-600 text-white text-xs px-2 py-1 rounded shadow";
         }
 
         // --- 2. FUNGSI UTAMA ---
 
-        // Tambah Barang Baru
         window.handleAddItem = async (e) => {
-            e.preventDefault();
+            e.preventDefault(); // Mencegah reload halaman
             const name = document.getElementById('itemName').value.trim();
             const qty = parseInt(document.getElementById('itemQty').value);
             const btn = document.getElementById('btnSaveItem');
@@ -277,7 +287,7 @@
             if (!name) return;
 
             try {
-                btn.textContent = "Menyimpan...";
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menyimpan...';
                 btn.disabled = true;
 
                 // Simpan ke Firestore
@@ -291,8 +301,9 @@
                 await addLog(name, 'SETUP', qty, 0, qty, 'Admin', 'Setup Awal', null);
 
                 document.getElementById('addItemForm').reset();
-                showToast("Barang berhasil disimpan ke Cloud!");
+                showToast("Barang berhasil disimpan!");
             } catch (err) {
+                console.error(err);
                 alert("Gagal menyimpan: " + err.message);
             } finally {
                 btn.innerHTML = '<i class="fas fa-save mr-2"></i> Simpan ke Cloud';
@@ -300,7 +311,6 @@
             }
         };
 
-        // Hapus Barang
         window.deleteItem = async (id, name) => {
             if (confirm(`Hapus ${name} dari database permanen?`)) {
                 try {
@@ -345,14 +355,16 @@
             document.getElementById('transactionModal').classList.add('hidden');
         };
 
-        // Eksekusi Transaksi
         confirmBtn.addEventListener('click', async () => {
             const amount = parseInt(document.getElementById('transactionAmount').value);
             const pic = document.getElementById('transactionPIC').value || 'Tanpa Nama';
             const desc = document.getElementById('transactionDesc').value || '-';
             const imgInput = document.getElementById('transactionImage');
 
-            if (!amount || amount <= 0) return;
+            if (!amount || amount <= 0) {
+                document.getElementById('transactionAmount').focus();
+                return;
+            }
 
             const item = inventory.find(i => i.id === currentSelectedId);
             if (!item) return;
@@ -369,21 +381,21 @@
             }
 
             confirmBtn.disabled = true;
-            confirmBtn.textContent = "Memproses...";
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
-                // Kompres Gambar jika ada
+                // Kompres Gambar
                 let imgData = null;
                 if (imgInput.files[0]) {
                     imgData = await compressImage(imgInput.files[0]);
                 }
 
-                // 1. Update Stok Barang
+                // 1. Update Stok
                 await updateDoc(doc(db, "inventory", currentSelectedId), {
                     stock: newStock
                 });
 
-                // 2. Tambah ke History
+                // 2. Log History
                 await addLog(item.name, currentTransactionType, amount, item.stock, newStock, pic, desc, imgData);
 
                 showToast("Transaksi Berhasil!");
@@ -396,13 +408,12 @@
             }
         });
 
-        // Helper: Tambah Log ke Firestore
         async function addLog(itemName, type, amount, before, after, pic, desc, img) {
             await addDoc(collection(db, "history"), {
                 date: getFormattedDate(),
-                timestamp: serverTimestamp(), // Untuk sorting
+                timestamp: serverTimestamp(),
                 itemName, type, amount, before, after, pic, desc, 
-                image: img // Base64 string (Compressed)
+                image: img
             });
         }
 
@@ -413,9 +424,13 @@
             document.getElementById('totalItemsBadge').textContent = `${inventory.length} Item`;
             tbody.innerHTML = '';
 
+            if (inventory.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-400">Belum ada data. Tambahkan barang baru.</td></tr>`;
+                return;
+            }
+
             inventory.forEach((item) => {
                 const color = item.stock > 10 ? 'bg-green-100 text-green-800' : (item.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800');
-                
                 const row = document.createElement('tr');
                 row.className = "border-b hover:bg-gray-50 fade-in";
                 row.innerHTML = `
@@ -435,11 +450,16 @@
             const tbody = document.getElementById('historyTableBody');
             tbody.innerHTML = '';
             
+            if (history.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-gray-400">Belum ada riwayat.</td></tr>`;
+                return;
+            }
+
             history.forEach(log => {
                 let badge = log.type === 'DEPOSIT' ? '<span class="text-blue-600 bg-blue-50 px-2 py-1 rounded font-bold">DP</span>' : 
                            (log.type === 'WITHDRAW' ? '<span class="text-orange-600 bg-orange-50 px-2 py-1 rounded font-bold">WD</span>' : '<span class="text-gray-500 font-bold">NEW</span>');
                 
-                let imgBtn = log.image ? `<button onclick="showImage('${log.id}')" class="text-blue-500 hover:text-blue-700"><i class="fas fa-eye"></i></button>` : '-';
+                let imgBtn = log.image ? `<button onclick="showImage('${log.id}')" class="text-blue-500 hover:text-blue-700"><i class="fas fa-eye"></i></button>` : '<span class="text-gray-300">-</span>';
 
                 const row = document.createElement('tr');
                 row.className = "border-b text-xs hover:bg-gray-50";
@@ -461,9 +481,8 @@
             });
         }
 
-        // Kompresi Gambar (PENTING UNTUK FIRESTORE)
         const compressImage = (file) => {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = (e) => {
@@ -471,15 +490,17 @@
                     img.src = e.target.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 500; // Resize ke lebar 500px
+                        const MAX_WIDTH = 500;
                         const scaleSize = MAX_WIDTH / img.width;
                         canvas.width = MAX_WIDTH;
                         canvas.height = img.height * scaleSize;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Kompres kualitas 60%
-                    }
-                }
+                        resolve(canvas.toDataURL('image/jpeg', 0.6));
+                    };
+                    img.onerror = (err) => reject(err);
+                };
+                reader.onerror = (err) => reject(err);
             });
         };
 
@@ -494,9 +515,6 @@
         window.takeRowScreenshot = (id) => {
             const log = history.find(l => l.id === id);
             if(!log) return;
-            // Isi Template Receipt (DOM manipulation logic sama seperti sebelumnya)
-            // ... Logic struk disederhanakan untuk brevity di Firebase context ...
-            // Gunakan logic screenshot yang sama seperti versi lokal
             const tpl = document.getElementById('receiptTemplate');
             document.getElementById('receiptContent').innerHTML = `
                 <div class="flex justify-between"><span>Tanggal:</span><span>${log.date}</span></div>
@@ -504,8 +522,8 @@
                 <div class="flex justify-between"><span>Tipe:</span><span class="font-bold">${log.type}</span></div>
                 <div class="flex justify-between"><span>Jumlah:</span><span class="text-lg font-bold">${log.amount}</span></div>
                 <div class="flex justify-between text-xs text-gray-500 mt-2"><span>Awal: ${log.before}</span><span>Akhir: ${log.after}</span></div>
-                <p class="mt-2 text-xs italic bg-gray-50 p-1">${log.desc}</p>
-                <div class="mt-1 text-right text-xs">PIC: ${log.pic}</div>
+                <p class="mt-2 text-xs italic bg-gray-50 p-1">${log.desc || '-'}</p>
+                <div class="mt-1 text-right text-xs">PIC: ${log.pic || '-'}</div>
             `;
             const imgC = document.getElementById('receiptImgCont');
             const img = document.getElementById('receiptImg');
@@ -542,9 +560,22 @@
             t.classList.remove('translate-y-20');
             setTimeout(() => t.classList.add('translate-y-20'), 3000);
         }
+        
+        function showError(title, msg) {
+            const banner = document.getElementById('errorBanner');
+            const txt = document.getElementById('errorText');
+            txt.innerHTML = `<strong>${title}:</strong> ${msg}`;
+            banner.classList.remove('hidden');
+        }
 
-        // Tampilkan tanggal hari ini
         document.getElementById('currentDate').textContent = getFormattedDate();
+        
+        // Debugging global error
+        window.onerror = function(message, source, lineno, colno, error) {
+             console.error("Global Error:", message);
+             // Uncomment jika ingin alert setiap error
+             // alert("System Error: " + message);
+        };
     </script>
 </body>
 </html>
