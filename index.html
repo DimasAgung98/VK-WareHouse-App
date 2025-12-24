@@ -12,13 +12,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Receipt Pattern Background */
+        .receipt-bg {
+            background-color: #ffffff;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
     </style>
 </head>
 <body class="text-gray-800">
@@ -109,6 +115,7 @@
                                         <th class="py-2 px-2 text-center">Akhir</th>
                                         <th class="py-2 px-2">PIC</th>
                                         <th class="py-2 px-2">Ket</th>
+                                        <th class="py-2 px-2 text-center">Bukti</th>
                                         <th class="py-2 px-2 text-center">Aksi</th>
                                     </tr>
                                 </thead>
@@ -150,18 +157,88 @@
         </div>
     </div>
 
+    <!-- Modal Edit Barang -->
+    <div id="editItemModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Edit Barang</h3>
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">Nama Barang</label>
+                    <input type="text" id="editItemName" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">Stok Saat Ini (Koreksi)</label>
+                    <input type="number" id="editItemStock" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="document.getElementById('editItemModal').classList.add('hidden')" class="flex-1 py-2 border rounded-lg text-gray-600 text-sm">Batal</button>
+                <button id="saveEditBtn" class="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow hover:bg-blue-700">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Preview Image -->
     <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-80 hidden flex items-center justify-center z-50 p-4" onclick="this.classList.add('hidden')">
         <img id="fullImagePreview" src="" class="max-w-full max-h-screen rounded shadow-lg">
     </div>
 
-    <!-- Hidden Receipt (Struk) -->
-    <div id="receiptTemplate" class="fixed bg-white p-6 rounded-lg w-[400px] border" style="z-index:-10; opacity:0; pointer-events:none;">
-        <div class="text-center mb-4 border-b pb-2"><h2 class="font-bold">BUKTI TRANSAKSI</h2></div>
-        <div class="space-y-2 text-sm" id="receiptContent">
-            <!-- Isi di inject JS -->
+    <!-- Template Report (Desain Baru & Rapi) -->
+    <div id="receiptTemplate" class="fixed receipt-bg p-8 rounded-none w-[450px] shadow-2xl border border-gray-200 text-gray-800 font-mono" style="z-index:-10; opacity:0; pointer-events:none;">
+        <!-- Header -->
+        <div class="text-center border-b-2 border-gray-800 pb-4 mb-6">
+            <h2 class="text-3xl font-bold tracking-tighter text-gray-900 mb-1">WAREHOUSE</h2>
+            <p class="text-sm text-gray-500 tracking-[0.2em] uppercase font-bold">TRANSACTION REPORT</p>
         </div>
-        <div class="mt-2 text-center hidden" id="receiptImgCont"><img id="receiptImg" class="mx-auto max-h-40"></div>
+
+        <!-- Meta Data -->
+        <div class="flex justify-between items-end mb-6 text-xs text-gray-600">
+            <div class="space-y-1">
+                <p>DATE: <span id="recDate" class="font-bold text-gray-900"></span></p>
+                <p>PIC : <span id="recPIC" class="font-bold text-gray-900"></span></p>
+                <p>ID  : <span id="recID" class="font-bold text-gray-900"></span></p>
+            </div>
+            <div class="text-right">
+                <span id="recType" class="inline-block px-3 py-1 rounded border-2 border-gray-800 font-bold text-gray-900">TYPE</span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="border-y-2 border-dashed border-gray-400 py-4 mb-4">
+            <div class="flex justify-between mb-2">
+                <span class="font-bold text-lg" id="recItem">Item Name</span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+                <span>Quantity</span>
+                <span class="font-bold text-xl" id="recAmount">0</span>
+            </div>
+        </div>
+
+        <!-- Stock Details -->
+        <div class="flex justify-between text-xs text-gray-500 mb-4 bg-gray-50 p-2 rounded border border-gray-200">
+            <div>Stock Before: <span id="recBefore" class="font-bold text-gray-800">0</span></div>
+            <div>Stock After: <span id="recAfter" class="font-bold text-gray-800">0</span></div>
+        </div>
+
+        <!-- Notes -->
+        <div class="mb-4">
+            <p class="text-[10px] text-gray-400 uppercase mb-1">Description / Notes</p>
+            <div id="recDesc" class="text-sm bg-gray-100 p-2 rounded border-l-4 border-gray-400 italic text-gray-700 min-h-[40px]"></div>
+        </div>
+
+        <!-- Image Proof -->
+        <div id="receiptImgCont" class="hidden mt-4 pt-4 border-t border-gray-200 text-center">
+            <p class="text-[10px] text-gray-400 uppercase mb-2">Attached Proof</p>
+            <div class="p-2 border border-gray-300 inline-block rounded bg-white shadow-sm">
+                <img id="receiptImg" class="max-h-64 max-w-full rounded object-contain">
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 pt-4 border-t-2 border-gray-800 text-center">
+            <p class="text-[10px] text-gray-400">Generated by Warehouse Cloud System</p>
+            <p class="text-[10px] text-gray-300 mt-1">*** END OF REPORT ***</p>
+        </div>
     </div>
 
     <!-- Toast -->
@@ -172,7 +249,7 @@
     <!-- LOGIC SCRIPT (FIREBASE MODULE) -->
     <script type="module">
         // =========================================================================
-        // KONFIGURASI FIREBASE ANDA (Sudah diisi sesuai permintaan)
+        // KONFIGURASI FIREBASE
         // =========================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyA4jjcotqWX2WmCw73xrbh0g1eLHAL4_bY",
@@ -184,19 +261,16 @@
         };
         // =========================================================================
 
-        // Import Firebase SDK
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, limit, serverTimestamp } 
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, limit, serverTimestamp, getDoc } 
         from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } 
         from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-        // Cek dasar
         if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("API_KEY")) {
              showError("Config Error", "API Key belum diisi dengan benar.");
         }
 
-        // Init Firebase
         let app, db, auth;
         try {
             app = initializeApp(firebaseConfig);
@@ -206,28 +280,25 @@
             showError("Init Error", e.message);
         }
 
-        // State Global
         let inventory = [];
         let history = [];
         let currentSelectedId = null;
         let currentTransactionType = '';
+        let currentEditId = null;
 
-        // UI References
         const statusEl = document.getElementById('connectionStatus');
         const confirmBtn = document.getElementById('confirmBtn');
 
         // --- 0. AUTHENTICATION ---
-        // Login Anonim (Wajib diaktifkan di Firebase Console -> Auth -> Sign-in method)
         signInAnonymously(auth).catch((error) => {
             console.error("Auth Error:", error);
-            showError("Gagal Login", "Pastikan 'Anonymous Auth' sudah diaktifkan di Firebase Console. Error: " + error.code);
+            showError("Gagal Login", "Pastikan 'Anonymous Auth' sudah diaktifkan di Firebase Console.");
             statusEl.textContent = "Auth Gagal";
             statusEl.className = "bg-red-500 text-white text-xs px-2 py-1 rounded shadow";
         });
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // User login sukses, mulai ambil data
                 statusEl.textContent = "Connected";
                 statusEl.className = "bg-green-500 text-white text-xs px-2 py-1 rounded shadow";
                 document.getElementById('errorBanner').classList.add('hidden');
@@ -240,7 +311,6 @@
 
         // --- 1. SINKRONISASI DATA ---
         function startListeners() {
-            // Listener Inventory
             const qInv = query(collection(db, "inventory"), orderBy("name"));
             onSnapshot(qInv, (snapshot) => {
                 inventory = [];
@@ -248,11 +318,8 @@
                     inventory.push({ id: doc.id, ...doc.data() });
                 });
                 renderInventory();
-            }, (error) => {
-                handleFirebaseError(error);
-            });
+            }, (error) => handleFirebaseError(error));
 
-            // Listener History
             const qHist = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(50));
             onSnapshot(qHist, (snapshot) => {
                 history = [];
@@ -260,26 +327,24 @@
                     history.push({ id: doc.id, ...doc.data() });
                 });
                 renderHistory();
-            }, (error) => {
-                console.error("History Error:", error);
-            });
+            }, (error) => console.error("History Error:", error));
         }
 
         function handleFirebaseError(error) {
             console.error("Firebase Error:", error);
             let msg = error.message;
             if (error.code === 'permission-denied') {
-                msg = "Akses Ditolak. Pastikan 'Firestore Rules' diatur ke 'allow read, write: if request.auth != null;'";
+                msg = "Akses Ditolak. Cek Rules di Firebase Console.";
             }
             showError("Database Error", msg);
             statusEl.textContent = "Error";
             statusEl.className = "bg-red-600 text-white text-xs px-2 py-1 rounded shadow";
         }
 
-        // --- 2. FUNGSI UTAMA ---
+        // --- 2. FUNGSI UTAMA (CRUD & EDIT) ---
 
         window.handleAddItem = async (e) => {
-            e.preventDefault(); // Mencegah reload halaman
+            e.preventDefault();
             const name = document.getElementById('itemName').value.trim();
             const qty = parseInt(document.getElementById('itemQty').value);
             const btn = document.getElementById('btnSaveItem');
@@ -290,20 +355,17 @@
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menyimpan...';
                 btn.disabled = true;
 
-                // Simpan ke Firestore
                 await addDoc(collection(db, "inventory"), {
                     name: name,
                     stock: qty,
                     createdAt: serverTimestamp()
                 });
 
-                // Catat Log
                 await addLog(name, 'SETUP', qty, 0, qty, 'Admin', 'Setup Awal', null);
 
                 document.getElementById('addItemForm').reset();
                 showToast("Barang berhasil disimpan!");
             } catch (err) {
-                console.error(err);
                 alert("Gagal menyimpan: " + err.message);
             } finally {
                 btn.innerHTML = '<i class="fas fa-save mr-2"></i> Simpan ke Cloud';
@@ -322,7 +384,75 @@
             }
         };
 
-        // --- 3. TRANSAKSI ---
+        // --- FITUR BARU: EDIT BARANG ---
+        window.openEditModal = (id) => {
+            const item = inventory.find(i => i.id === id);
+            if (!item) return;
+            currentEditId = id;
+            document.getElementById('editItemName').value = item.name;
+            document.getElementById('editItemStock').value = item.stock;
+            document.getElementById('editItemModal').classList.remove('hidden');
+        };
+
+        document.getElementById('saveEditBtn').addEventListener('click', async () => {
+            const newName = document.getElementById('editItemName').value.trim();
+            const newStock = parseInt(document.getElementById('editItemStock').value);
+            
+            if(!newName || isNaN(newStock)) {
+                alert("Data tidak valid"); return;
+            }
+
+            try {
+                await updateDoc(doc(db, "inventory", currentEditId), {
+                    name: newName,
+                    stock: newStock
+                });
+                document.getElementById('editItemModal').classList.add('hidden');
+                showToast("Data barang diperbarui");
+            } catch(err) {
+                alert("Gagal update: " + err.message);
+            }
+        });
+
+        // --- FITUR: HAPUS RIWAYAT & ROLLBACK STOK ---
+        window.deleteTransaction = async (logId) => {
+            const log = history.find(l => l.id === logId);
+            if (!log) return;
+
+            const confirmMsg = `Hapus transaksi ini?\n\nPERINGATAN: Stok barang '${log.itemName}' akan dikembalikan ke kondisi sebelum transaksi ini terjadi.`;
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                const item = inventory.find(i => i.name === log.itemName);
+
+                if (item && log.type !== 'SETUP') {
+                    let revertedStock = item.stock;
+                    // Logic Rollback: Kebalikan dari operasi awal
+                    if (log.type === 'DEPOSIT') {
+                        revertedStock = item.stock - log.amount; // Dulu nambah, skrg kurang
+                    } else if (log.type === 'WITHDRAW') {
+                        revertedStock = item.stock + log.amount; // Dulu kurang, skrg nambah
+                    }
+
+                    if (revertedStock < 0) revertedStock = 0; // Safety
+
+                    await updateDoc(doc(db, "inventory", item.id), {
+                        stock: revertedStock
+                    });
+                } else if (!item && log.type !== 'SETUP') {
+                    if(!confirm("Barang sudah tidak ada di gudang. Hapus log saja?")) return;
+                }
+
+                await deleteDoc(doc(db, "history", logId));
+                showToast("Transaksi dihapus & stok dikembalikan.");
+
+            } catch (err) {
+                console.error(err);
+                alert("Gagal menghapus transaksi: " + err.message);
+            }
+        };
+
+        // --- 3. TRANSAKSI (DP/WD) ---
 
         window.openModal = (id, type) => {
             const item = inventory.find(i => i.id === id);
@@ -384,18 +514,15 @@
             confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
-                // Kompres Gambar
                 let imgData = null;
                 if (imgInput.files[0]) {
                     imgData = await compressImage(imgInput.files[0]);
                 }
 
-                // 1. Update Stok
                 await updateDoc(doc(db, "inventory", currentSelectedId), {
                     stock: newStock
                 });
 
-                // 2. Log History
                 await addLog(item.name, currentTransactionType, amount, item.stock, newStock, pic, desc, imgData);
 
                 showToast("Transaksi Berhasil!");
@@ -417,7 +544,7 @@
             });
         }
 
-        // --- 4. UTILITIES ---
+        // --- 4. UTILITIES (UI & Helpers) ---
 
         function renderInventory() {
             const tbody = document.getElementById('inventoryTableBody');
@@ -437,9 +564,10 @@
                     <td class="py-3 px-2 font-medium">${item.name}</td>
                     <td class="py-3 px-2 text-center"><span class="px-2 py-1 rounded-full text-xs font-bold ${color}">${item.stock}</span></td>
                     <td class="py-3 px-2 text-center flex justify-center space-x-2">
-                        <button onclick="openModal('${item.id}', 'DEPOSIT')" class="bg-blue-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-blue-600"><i class="fas fa-plus"></i></button>
-                        <button onclick="openModal('${item.id}', 'WITHDRAW')" class="bg-orange-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-orange-600"><i class="fas fa-minus"></i></button>
-                        <button onclick="deleteItem('${item.id}', '${item.name}')" class="bg-gray-200 text-gray-500 w-8 h-8 rounded flex items-center justify-center hover:bg-red-500 hover:text-white"><i class="fas fa-trash"></i></button>
+                        <button onclick="openModal('${item.id}', 'DEPOSIT')" class="bg-blue-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-blue-600 shadow-sm" title="Tambah Stok"><i class="fas fa-plus"></i></button>
+                        <button onclick="openModal('${item.id}', 'WITHDRAW')" class="bg-orange-500 text-white w-8 h-8 rounded flex items-center justify-center hover:bg-orange-600 shadow-sm" title="Kurangi Stok"><i class="fas fa-minus"></i></button>
+                        <button onclick="openEditModal('${item.id}')" class="bg-gray-100 text-gray-600 w-8 h-8 rounded flex items-center justify-center hover:bg-gray-200 shadow-sm" title="Edit Barang"><i class="fas fa-pen"></i></button>
+                        <button onclick="deleteItem('${item.id}', '${item.name}')" class="bg-gray-100 text-gray-600 w-8 h-8 rounded flex items-center justify-center hover:bg-red-500 hover:text-white shadow-sm" title="Hapus Barang"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -451,30 +579,33 @@
             tbody.innerHTML = '';
             
             if (history.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-gray-400">Belum ada riwayat.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-gray-400">Belum ada riwayat.</td></tr>`;
                 return;
             }
 
             history.forEach(log => {
-                let badge = log.type === 'DEPOSIT' ? '<span class="text-blue-600 bg-blue-50 px-2 py-1 rounded font-bold">DP</span>' : 
-                           (log.type === 'WITHDRAW' ? '<span class="text-orange-600 bg-orange-50 px-2 py-1 rounded font-bold">WD</span>' : '<span class="text-gray-500 font-bold">NEW</span>');
+                let badge = '';
+                if (log.type === 'DEPOSIT') badge = '<span class="text-blue-700 bg-blue-100 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200">DP</span>';
+                else if (log.type === 'WITHDRAW') badge = '<span class="text-orange-700 bg-orange-100 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-200">WD</span>';
+                else badge = '<span class="text-gray-600 bg-gray-100 px-2 py-0.5 rounded text-[10px] font-bold">NEW</span>';
                 
-                let imgBtn = log.image ? `<button onclick="showImage('${log.id}')" class="text-blue-500 hover:text-blue-700"><i class="fas fa-eye"></i></button>` : '<span class="text-gray-300">-</span>';
+                let imgBtn = log.image ? `<button onclick="showImage('${log.id}')" class="text-blue-500 hover:text-blue-700"><i class="fas fa-image"></i></button>` : '<span class="text-gray-300">-</span>';
 
                 const row = document.createElement('tr');
-                row.className = "border-b text-xs hover:bg-gray-50";
+                row.className = "border-b text-xs hover:bg-gray-50 transition";
                 row.innerHTML = `
-                    <td class="py-2 px-2 whitespace-nowrap">${log.date}</td>
-                    <td class="py-2 px-2 font-medium">${log.itemName}</td>
+                    <td class="py-2 px-2 whitespace-nowrap text-gray-500">${log.date}</td>
+                    <td class="py-2 px-2 font-medium text-gray-700">${log.itemName}</td>
                     <td class="py-2 px-2 text-center">${badge}</td>
-                    <td class="py-2 px-2 text-center font-bold">${log.amount}</td>
+                    <td class="py-2 px-2 text-center font-bold text-gray-800">${log.amount}</td>
                     <td class="py-2 px-2 text-center text-gray-400">${log.before}</td>
-                    <td class="py-2 px-2 text-center font-semibold">${log.after}</td>
-                    <td class="py-2 px-2">${log.pic || '-'}</td>
-                    <td class="py-2 px-2 italic text-gray-500 truncate max-w-[100px]">${log.desc || '-'}</td>
+                    <td class="py-2 px-2 text-center font-semibold text-gray-600">${log.after}</td>
+                    <td class="py-2 px-2 text-gray-600">${log.pic || '-'}</td>
+                    <td class="py-2 px-2 italic text-gray-400 truncate max-w-[80px]">${log.desc || '-'}</td>
+                    <td class="py-2 px-2 text-center">${imgBtn}</td>
                     <td class="py-2 px-2 text-center flex justify-center space-x-2 items-center">
-                        ${imgBtn}
-                        <button onclick="takeRowScreenshot('${log.id}')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-camera"></i></button>
+                        <button onclick="takeRowScreenshot('${log.id}')" class="text-gray-400 hover:text-blue-600 transition" title="Print Report"><i class="fas fa-print"></i></button>
+                        <button onclick="deleteTransaction('${log.id}')" class="text-gray-400 hover:text-red-600 transition" title="Hapus Riwayat (Rollback Stok)"><i class="fas fa-trash-alt"></i></button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -515,29 +646,63 @@
         window.takeRowScreenshot = (id) => {
             const log = history.find(l => l.id === id);
             if(!log) return;
-            const tpl = document.getElementById('receiptTemplate');
-            document.getElementById('receiptContent').innerHTML = `
-                <div class="flex justify-between"><span>Tanggal:</span><span>${log.date}</span></div>
-                <div class="flex justify-between"><span>Barang:</span><span>${log.itemName}</span></div>
-                <div class="flex justify-between"><span>Tipe:</span><span class="font-bold">${log.type}</span></div>
-                <div class="flex justify-between"><span>Jumlah:</span><span class="text-lg font-bold">${log.amount}</span></div>
-                <div class="flex justify-between text-xs text-gray-500 mt-2"><span>Awal: ${log.before}</span><span>Akhir: ${log.after}</span></div>
-                <p class="mt-2 text-xs italic bg-gray-50 p-1">${log.desc || '-'}</p>
-                <div class="mt-1 text-right text-xs">PIC: ${log.pic || '-'}</div>
-            `;
-            const imgC = document.getElementById('receiptImgCont');
-            const img = document.getElementById('receiptImg');
-            if(log.image) { img.src = log.image; imgC.classList.remove('hidden'); } 
-            else { imgC.classList.add('hidden'); }
+            
+            // Populate New Report Template
+            document.getElementById('recDate').textContent = log.date;
+            document.getElementById('recPIC').textContent = log.pic || 'Unknown';
+            document.getElementById('recID').textContent = log.id.substring(0, 8).toUpperCase();
+            
+            let typeText = 'SETUP';
+            let typeClass = 'border-gray-300 text-gray-700 bg-gray-50';
+            if (log.type === 'DEPOSIT') { typeText = 'INBOUND (DP)'; typeClass = 'border-blue-500 text-blue-800 bg-blue-50'; }
+            else if (log.type === 'WITHDRAW') { typeText = 'OUTBOUND (WD)'; typeClass = 'border-orange-500 text-orange-800 bg-orange-50'; }
+            
+            const recType = document.getElementById('recType');
+            recType.textContent = typeText;
+            recType.className = `inline-block px-3 py-1 rounded border-2 font-bold ${typeClass}`;
+            
+            document.getElementById('recItem').textContent = log.itemName;
+            document.getElementById('recAmount').textContent = log.amount;
+            document.getElementById('recBefore').textContent = log.before;
+            document.getElementById('recAfter').textContent = log.after;
+            document.getElementById('recDesc').textContent = log.desc || 'No description provided.';
 
-            tpl.style.opacity = '1';
-            html2canvas(tpl, { scale: 2 }).then(canvas => {
-                tpl.style.opacity = '0';
-                const link = document.createElement('a');
-                link.download = `Bukti_${log.type}_${Date.now()}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-            });
+            const imgCont = document.getElementById('receiptImgCont');
+            const imgEl = document.getElementById('receiptImg');
+            
+            if(log.image) {
+                imgEl.src = log.image;
+                imgCont.classList.remove('hidden');
+                
+                // PENTING: Tunggu gambar dimuat sebelum capture
+                imgEl.onload = () => {
+                    captureNow();
+                }
+            } else {
+                imgCont.classList.add('hidden');
+                captureNow();
+            }
+
+            function captureNow() {
+                const tpl = document.getElementById('receiptTemplate');
+                tpl.style.opacity = '1';
+                
+                html2canvas(tpl, { 
+                    scale: 2,
+                    backgroundColor: '#ffffff',
+                    useCORS: true // Penting untuk gambar
+                }).then(canvas => {
+                    tpl.style.opacity = '0';
+                    const link = document.createElement('a');
+                    link.download = `Report_${log.type}_${log.itemName}.png`;
+                    link.href = canvas.toDataURL();
+                    link.click();
+                }).catch(err => {
+                    console.error("Gagal screenshot:", err);
+                    tpl.style.opacity = '0';
+                    alert("Gagal membuat report: " + err.message);
+                });
+            }
         };
 
         window.takeScreenshotTable = () => {
@@ -569,13 +734,6 @@
         }
 
         document.getElementById('currentDate').textContent = getFormattedDate();
-        
-        // Debugging global error
-        window.onerror = function(message, source, lineno, colno, error) {
-             console.error("Global Error:", message);
-             // Uncomment jika ingin alert setiap error
-             // alert("System Error: " + message);
-        };
     </script>
 </body>
 </html>
